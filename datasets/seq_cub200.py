@@ -5,7 +5,7 @@ import torchvision.transforms as transforms
 from backbone.ResNet50 import resnet50
 import torch.nn.functional as F
 import numpy as np
-from utils.conf import base_path
+from functions.conf import base_path
 from PIL import Image
 from datasets.utils.validation import get_train_val
 from datasets.utils.continual_dataset import ContinualDataset, store_masked_loaders

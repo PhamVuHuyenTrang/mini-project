@@ -6,7 +6,7 @@ from torch.functional import Tensor
 from torchvision import transforms
 from torch.utils.data import Dataset
 
-from utils.no_bn import bn_track_stats
+from functions.no_bn import bn_track_stats
 
 
 def reservoir(num_seen_examples: int, buffer_size: int) -> int:

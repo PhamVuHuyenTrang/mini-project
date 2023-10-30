@@ -1,8 +1,8 @@
 
 import torch
 import torch.nn.functional as F
-from utils.buffer import Buffer
-from utils.args import *
+from functions.buffer import Buffer
+from functions.args import *
 from models.utils.continual_model import ContinualModel
 from datasets import get_dataset
 

@@ -4,7 +4,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 from backbone.ResNet18 import resnet18
 import torch.nn.functional as F
-from utils.conf import base_path
+from functions.conf import base_path
 from PIL import Image
 import os
 from datasets.utils.validation import get_train_val

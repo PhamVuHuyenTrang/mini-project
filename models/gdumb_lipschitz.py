@@ -1,12 +1,12 @@
 from tqdm import tqdm
 
-from utils.args import *
+from functions.args import *
 from torch.optim import SGD, lr_scheduler
-from utils.buffer import Buffer
+from functions.buffer import Buffer
 import torch
 import numpy as np
-from utils.distributed import make_dp
-from utils.lipschitz import RobustnessOptimizer, add_regularization_args
+from functions.distributed import make_dp
+from functions.lipschitz import RobustnessOptimizer, add_regularization_args
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='GDumb learns an empty model only on the buffer.'

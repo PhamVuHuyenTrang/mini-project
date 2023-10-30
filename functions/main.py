@@ -9,13 +9,13 @@ sys.path.append(conf_path)
 
 from models import get_all_models
 from argparse import ArgumentParser
-from utils.args import add_management_args
+from functions.args import add_management_args
 from datasets import get_dataset
 from models import get_model
-from utils.training import train
-from utils.conf import set_random_seed
-from utils import create_if_not_exists
-from utils.distributed import make_ddp, make_dp
+from functions.training import train
+from functions.conf import set_random_seed
+from functions.create_if_not_exists import create_if_not_exists
+from functions.distributed import make_ddp, make_dp
 import torch
 
 import uuid

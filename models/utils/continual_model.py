@@ -6,7 +6,7 @@ import torchvision
 from argparse import Namespace
 
 from datasets import get_dataset
-from utils.conf import base_path, get_device
+from functions.conf import base_path, get_device
 from datasets.seq_cifar100 import MyCIFAR100, SequentialCIFAR100
 from datasets.seq_tinyimagenet import MyTinyImagenet, SequentialTinyImagenet32R
 from torchvision import transforms
@@ -14,7 +14,7 @@ from tqdm import tqdm
 import os
 from datetime import datetime
 
-from utils.distributed import CustomDP
+from functions.distributed import CustomDP
 
 class ContinualModel(nn.Module):
     """

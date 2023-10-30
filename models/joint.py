@@ -1,12 +1,12 @@
 
 from datetime import datetime
-from utils.training import evaluate
+from functions.training import evaluate
 from torch.optim import SGD
 
-from utils.args import *
+from functions.args import *
 from models.utils.continual_model import ContinualModel
 from datasets.utils.validation import ValidationDataset
-from utils.status import progress_bar
+from functions.status import progress_bar
 import torch
 import numpy as np
 import math

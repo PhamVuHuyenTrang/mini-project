@@ -3,7 +3,7 @@ import torch
 from PIL import Image
 import numpy as np
 import os
-from utils import create_if_not_exists
+from functions.create_if_not_exists import create_if_not_exists
 import torchvision.transforms.transforms as transforms
 from torchvision import datasets
 

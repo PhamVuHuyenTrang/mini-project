@@ -1,11 +1,11 @@
 from datasets import get_dataset
-from utils.buffer import Buffer
+from functions.buffer import Buffer
 from torch.nn import functional as F
-from utils.args import *
+from functions.args import *
 import torch
 import numpy as np
 
-from utils.lipschitz import RobustnessOptimizer, add_regularization_args
+from functions.lipschitz import RobustnessOptimizer, add_regularization_args
 from sklearn.cluster import KMeans
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Continual learning via'

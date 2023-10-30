@@ -3,11 +3,11 @@ import csv
 import os
 import sys
 from typing import Dict, Any
-from utils.metrics import *
+from functions.metrics import *
 import pandas as pd
 from datetime import datetime
-from utils import create_if_not_exists
-from utils.conf import base_path
+from functions.create_if_not_exists import create_if_not_exists
+from functions.conf import base_path
 import numpy as np
 
 useless_args = ['dataset', 'tensorboard', 'validation', 'model',

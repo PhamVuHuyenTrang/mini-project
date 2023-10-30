@@ -1,8 +1,8 @@
 import torch
-from utils.status import ProgressBar, create_stash, update_status, update_accs
-from utils.tb_logger import *
-from utils.loggers import *
-from utils.loggers import CsvLogger, LossLogger, ExampleLogger, ExampleFullLogger, DictxtLogger
+from functions.status import ProgressBar, create_stash, update_status, update_accs
+from functions.tb_logger import *
+from functions.loggers import *
+from functions.loggers import CsvLogger, LossLogger, ExampleLogger, ExampleFullLogger, DictxtLogger
 from argparse import Namespace
 from models.utils.continual_model import ContinualModel
 from datasets.utils.continual_dataset import ContinualDataset
@@ -15,7 +15,7 @@ import pickle
 import math
 from copy import deepcopy
 
-from utils.distributed import wait_for_master
+from functions.distributed import wait_for_master
 
 import torch.optim
 

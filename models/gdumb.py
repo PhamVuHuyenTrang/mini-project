@@ -4,16 +4,16 @@ from tqdm import tqdm
 
 from backbone import xavier
 from datasets import get_dataset
-from utils.args import *
+from functions.args import *
 from models.utils.continual_model import ContinualModel
 from torch.optim import SGD, lr_scheduler
 import math
-from utils.buffer import Buffer
+from functions.buffer import Buffer
 import torch
 from torch import nn
 import numpy as np
 
-from utils.distributed import make_dp
+from functions.distributed import make_dp
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='GDumb learns an empty model only on the buffer.')

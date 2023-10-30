@@ -2,10 +2,10 @@
 from copy import deepcopy
 import torch
 import torch.nn.functional as F
-from utils.buffer import Buffer
-from utils.args import *
+from functions.buffer import Buffer
+from functions.args import *
 from datasets import get_dataset
-from utils.lipschitz import RobustnessOptimizer, add_regularization_args
+from functions.lipschitz import RobustnessOptimizer, add_regularization_args
 from sklearn.cluster import KMeans
 import numpy as np
 

@@ -1,6 +1,6 @@
 
 from datasets import get_dataset
-from utils.conf import base_path
+from functions.conf import base_path
 import os
 from argparse import Namespace
 from typing import Dict, Any

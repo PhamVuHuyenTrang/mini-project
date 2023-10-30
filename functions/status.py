@@ -4,7 +4,7 @@ import sys
 import os
 from time import time
 import json
-from utils.conf import base_path
+from functions.conf import base_path
 from typing import Any, Dict, Union
 from torch import nn
 from argparse import Namespace

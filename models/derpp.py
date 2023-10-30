@@ -1,12 +1,12 @@
 
 from datasets import get_dataset
-from utils.buffer import Buffer
+from functions.buffer import Buffer
 from torch.nn import functional as F
 from models.utils.continual_model import ContinualModel
-from utils.args import *
+from functions.args import *
 import torch
 
-from utils.distributed import make_dp
+from functions.distributed import make_dp
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Continual learning via'

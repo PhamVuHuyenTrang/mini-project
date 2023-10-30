@@ -1,5 +1,5 @@
 
-from utils.args import *
+from functions.args import *
 from models.utils.continual_model import ContinualModel
 
 

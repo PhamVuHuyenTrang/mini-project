@@ -126,15 +126,16 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
     assert len(mem_buffer.examples) <= mem_buffer.buffer_size
     assert mem_buffer.num_seen_examples <= mem_buffer.buffer_size
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
-
+    print(mem_buffer.examples)
+    print(type(mem_buffer.examples))
     if t_idx <= 5:
 
-        _, labels, (centers) = cv2.kmeans(pixel_values, t_idx + 1, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+        _, labels, (centers) = cv2.kmeans(mem_buffer.examples.cpu().numpy().reshape((-1,3)), t_idx + 1, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
     
     else:
 
         # define stopping criteria
-        _, labels, (centers) = cv2.kmeans(pixel_values, t_idx + 1, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+        _, labels, (centers) = cv2.kmeans(mem_buffer.examples.cpu().numpy().reshape((-1,3)), t_idx + 1, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
 
     def ClusterIndicesNumpy(clustNum, labels_array): #numpy 
         return np.where(labels_array == clustNum)[0]
@@ -143,9 +144,14 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
         #return np.array([i for i, x in enumerate(labels_array) if x == clustNum])
 
     mem_buffer_clustered = []
-    for i in range(t_idx + 1):
-        mem_buffer_clustered.append(ClusterIndicesNumpy(i, labels))
+    if t_idx <= 5:
+        for i in range(t_idx + 1):
+            mem_buffer_clustered.append(ClusterIndicesNumpy(i, labels))
+    else:
+        for i in range(5):
+            mem_buffer_clustered.append(ClusterIndicesNumpy(i, labels))
     
+    print(len(mem_buffer_clustered))
     mem_buffer = np.array(mem_buffer_clustered)
     self.net.train(mode)
 
@@ -212,9 +218,9 @@ class ICarlLipschitz(RobustnessOptimizer):
             with torch.no_grad():
                 logits = torch.sigmoid(self.icarl_old_net(inputs))
         self.opt.zero_grad()
-        cross_entropy_losses, output_features = self.get_loss(inputs, labels, self.current_task, logits)
-        loss = cross_entropy_losses
-    
+        loss, output_features = self.get_loss(inputs, labels, self.current_task, logits)
+        print(loss)
+        print(len(output_features))
         # New losses
         if not self.buffer.is_empty():
 
@@ -222,9 +228,9 @@ class ICarlLipschitz(RobustnessOptimizer):
                 for output_feature in output_features:
                     loss += self.max_pairwise_difference(output_feature)
             
-            if self.args.loss_reg != 0:
-                for cross_entropy_loss in cross_entropy_losses:
-                    loss += self.max_pairwise_difference(cross_entropy_loss)
+            #if self.args.loss_reg != 0:
+                #for cross_entropy_loss in cross_entropy_losses:
+                    #loss += self.max_pairwise_difference(cross_entropy_loss)
 
         loss.backward()
 

@@ -61,9 +61,11 @@ def main(args=None):
     args.conf_jobnum = str(uuid.uuid4())
     args.conf_timestamp = str(datetime.datetime.now())
     args.conf_host = socket.gethostname()
-
+    print("Start getting dataset!")
     dataset = get_dataset(args)
+    print("Get dataset!")
     backbone = dataset.get_backbone()
+    print("Get backbone")
     loss = dataset.get_loss()
     if args.model == 'joint':
         args.ignore_other_metrics=1
@@ -78,6 +80,7 @@ def main(args=None):
     elif args.distributed == 'no':
         args.distributed = None
     
+    print("Training!")
     train(model, dataset, args)
 
 if __name__ == '__main__':

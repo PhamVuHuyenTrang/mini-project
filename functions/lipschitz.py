@@ -47,21 +47,21 @@ class RobustnessOptimizer(ContinualModel):
 
             _, partial_features = self.net(inputs, returnt='full')
 
-            lip_inputs = [inputs] + partial_features[:-1]
+            #lip_inputs = [inputs] + partial_features[:-1]
 
-            lip_values = self.get_feature_lip_coeffs(lip_inputs)
+            #lip_values = self.get_feature_lip_coeffs(lip_inputs)
             # (B, F)
-            lip_values = torch.stack(lip_values, dim=1)
+            #lip_values = torch.stack(lip_values, dim=1)
 
-            all_lips.append(lip_values)
+            #all_lips.append(lip_values)
             
-        self.budget_lip = torch.cat(all_lips, dim=0).mean(0)
+        #self.budget_lip = torch.cat(all_lips, dim=0).mean(0)
         
         inp = next(iter(dataset.train_loader))[0]
         _, teacher_feats = self.net(inp.to(self.device), returnt='full')
 
-        self.net.lip_coeffs = torch.autograd.Variable(torch.randn(len(teacher_feats)-1, dtype=torch.float), requires_grad=True).to(self.device)
-        self.net.lip_coeffs.data = self.budget_lip.detach().clone()
+        #self.net.lip_coeffs = torch.autograd.Variable(torch.randn(len(teacher_feats)-1, dtype=torch.float), requires_grad=True).to(self.device)
+        #self.net.lip_coeffs.data = self.budget_lip.detach().clone()
         self.opt = torch.optim.SGD(self.net.parameters(), lr=self.args.lr,
                         weight_decay=self.args.optim_wd, momentum=self.args.optim_mom)
 

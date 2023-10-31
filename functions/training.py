@@ -147,6 +147,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     if args.start_from is not None:
         for i in range(args.start_from):
             train_loader, test_loader = dataset.get_data_loaders()
+            print("Done getting data")
             if hasattr(model, 'end_task'):
                 model.end_task(dataset)
 
@@ -161,21 +162,26 @@ def train(model: ContinualModel, dataset: ContinualDataset,
     if not args.ignore_other_metrics and not 'MAMMOTH_SLAVE' in os.environ:
         dataset_copy = get_dataset(args)
         for t in range(dataset.N_TASKS):
+            print("Train tasks" + str(t))
             model.net.train()
             _, _ = dataset_copy.get_data_loaders()
         # if 'icarl' not in model.NAME and 'pnn' not in model.NAME:
         #     random_results_class, random_results_task = evaluate(
         #         model, dataset_copy)
 
+    print("waiting!!!")
     wait_for_master()
-
+    print("complete waiting!!")
     print(file=sys.stderr)
 
     for t in range(0 if args.start_from is None else args.start_from, dataset.N_TASKS if args.stop_after is None else args.stop_after):
         model.net.train()
+        print("Start traininng task" + str(t))
         train_loader, test_loader = dataset.get_data_loaders()
+        print("Complete loading dataset")
         if hasattr(model, 'begin_task'):
             model.begin_task(dataset)
+            print("Complete getting dataset and begin task!!")
         if t and not args.ignore_other_metrics and not 'MAMMOTH_SLAVE' in os.environ:
             accs = evaluate(model, dataset, last=True)
             results[t-1] = results[t-1] + accs[0]

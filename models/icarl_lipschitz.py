@@ -14,7 +14,7 @@ from functions.lipschitz import RobustnessOptimizer, add_regularization_args
 from functions.distributed import make_dp
 from functions.no_bn import bn_track_stats
 import numpy as np
-from sklearn.cluster import KMeans
+import cv2
 
 
 def get_parser() -> ArgumentParser:
@@ -125,14 +125,16 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
 
     assert len(mem_buffer.examples) <= mem_buffer.buffer_size
     assert mem_buffer.num_seen_examples <= mem_buffer.buffer_size
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
 
     if t_idx <= 5:
 
-        kmeans = KMeans(n_clusters=t_idx + 1, random_state=0, n_init="auto").fit(mem_buffer.examples)
+        _, labels, (centers) = cv2.kmeans(pixel_values, t_idx + 1, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
     
     else:
 
-        kmeans = KMeans(n_clusters = 5, random_state = 0, n_init = "auto").fit(mem_buffer.examples)
+        # define stopping criteria
+        _, labels, (centers) = cv2.kmeans(pixel_values, t_idx + 1, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
 
     def ClusterIndicesNumpy(clustNum, labels_array): #numpy 
         return np.where(labels_array == clustNum)[0]
@@ -142,7 +144,7 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
 
     mem_buffer_clustered = []
     for i in range(t_idx + 1):
-        mem_buffer_clustered.append(ClusterIndicesNumpy(i, kmeans.labels_))
+        mem_buffer_clustered.append(ClusterIndicesNumpy(i, labels))
     
     mem_buffer = np.array(mem_buffer_clustered)
     self.net.train(mode)
@@ -197,11 +199,13 @@ class ICarlLipschitz(RobustnessOptimizer):
         return max_differences
     
     def observe(self, inputs: torch.Tensor, labels: torch.Tensor, not_aug_inputs: torch.Tensor, logits=None, epoch=None):
-        if not hasattr(self, 'classes_so_far'):
-            self.register_buffer('classes_so_far', labels.unique().to(self.classes_so_far.device))
+        if not hasattr(self, 'classes_so_far_buffer'):
+            self.classes_so_far_buffer = labels.unique().to(labels.device)
+            self.register_buffer('classes_so_far', self.classes_so_far_buffer)
         else:
-            self.register_buffer('classes_so_far', torch.cat((
-                self.classes_so_far, labels.to(self.classes_so_far.device))).unique())
+            self.classes_so_far_buffer = torch.cat((self.classes_so_far_buffer, labels.to(self.classes_so_far_buffer.device))).unique()
+
+            self.register_buffer('classes_so_far', self.classes_so_far_buffer)
 
         self.class_means = None
         if self.current_task > 0:
@@ -209,7 +213,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                 logits = torch.sigmoid(self.icarl_old_net(inputs))
         self.opt.zero_grad()
         cross_entropy_losses, output_features = self.get_loss(inputs, labels, self.current_task, logits)
-        loss = cross_entropy_loss
+        loss = cross_entropy_losses
     
         # New losses
         if not self.buffer.is_empty():
@@ -268,14 +272,17 @@ class ICarlLipschitz(RobustnessOptimizer):
         return loss, output_features
 
     def begin_task(self, dataset):
+        print("start0")
+        print(self.current_task)
         if self.current_task == 0:
             self.load_initial_checkpoint()
+            print("load_initial_checkpoints")
             self.reset_classifier()
-                                
+            print("reset classifier")
             self.net.set_return_prerelu(True)
-
+            print("set_return_prerelu")
             self.init_net(dataset)
-
+            print("init_net")
         if self.current_task > 0:
             dataset.train_loader.dataset.targets = np.concatenate(
                 [dataset.train_loader.dataset.targets,
@@ -286,11 +293,13 @@ class ICarlLipschitz(RobustnessOptimizer):
                         self.buffer.examples[i].type(torch.uint8).cpu())
                         for i in range(self.buffer.num_seen_examples)]).squeeze(1)])
             else:
+                print("Start")
                 dataset.train_loader.dataset.data = np.concatenate(
                     [dataset.train_loader.dataset.data, torch.stack([((
                         self.buffer.examples[i] * 255).type(torch.uint8).cpu())
                         for i in range(self.buffer.num_seen_examples)]).numpy().swapaxes(1, 3)])
-
+                
+                print("End")
 
     def end_task(self, dataset) -> None:
         self.icarl_old_net = get_dataset(self.args).get_backbone().to(self.device)
@@ -315,7 +324,7 @@ class ICarlLipschitz(RobustnessOptimizer):
         transform = self.dataset.get_normalization_transform()
         class_means = []
         examples, labels, _ = self.buffer.get_all_data(transform)
-        for _y in self.classes_so_far:
+        for _y in self.classes_so_far_buffer:
             x_buf = torch.stack(
                 [examples[i]
                  for i in range(0, len(examples))

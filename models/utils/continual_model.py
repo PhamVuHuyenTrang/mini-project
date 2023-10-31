@@ -121,7 +121,7 @@ class ContinualModel(nn.Module):
                     if 'tinyimg' in self.args.datasetS.lower():
                         sched = torch.optim.lr_scheduler.MultiStepLR(
                             self.opt, milestones=[20, 30, 40, 45], gamma=0.5)
-
+                    print(self.setting.pre_epochs)
                     for e in range(self.setting.pre_epochs):
                         for i, (x, y, _) in tqdm(enumerate(self.aux_dl), desc='Pre-training epoch {}'.format(e), leave=False, total=len(self.aux_dl)):
                             if self.args.debug_mode == 1 and i > 3:

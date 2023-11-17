@@ -15,7 +15,7 @@ from functions.no_bn import bn_track_stats
 import numpy as np
 from functions.augmentations import rotate_30_degrees, rotate_60_degrees, add_noise, change_colors
 
-partition_func = create_partition_func_1nn((32, 32, 3), n_centroids=5000)
+partition_func = create_partition_func_1nn((84, 84, 3), n_centroids=5000)
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Continual Learning via iCaRL.'

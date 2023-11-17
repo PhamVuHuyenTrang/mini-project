@@ -127,7 +127,6 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
 
     assert len(mem_buffer.examples) <= mem_buffer.buffer_size
     assert mem_buffer.num_seen_examples <= mem_buffer.buffer_size
-
     self.net.train(mode)
 
 

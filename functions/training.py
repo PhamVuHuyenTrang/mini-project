@@ -17,7 +17,6 @@ from copy import deepcopy
 
 from functions.distributed import wait_for_master
 
-import torch.optim
 
 
 def mask_classes(outputs: torch.Tensor, dataset: ContinualDataset, k: int) -> None:

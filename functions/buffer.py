@@ -5,7 +5,8 @@ from typing import Tuple
 from torch.functional import Tensor
 from torchvision import transforms
 from torch.utils.data import Dataset
-
+import gc
+from functions.create_partition import create_partition_func_1nn, create_partition_func_grid
 from functions.no_bn import bn_track_stats
 
 
@@ -44,13 +45,13 @@ class Buffer(Dataset):
             assert n_tasks is not None
             self.task_number = n_tasks
             self.buffer_portion_size = buffer_size // n_tasks
-        self.attributes = ['examples', 'labels', 'logits', 'task_labels']
+        self.attributes = ['examples', 'labels', 'logits', 'clusterID', 'task_labels']
         self.attention_maps = [None] * buffer_size
         self.lip_values = [None] * buffer_size
 
         self.balanced_class_perm  = None
         self.transform = None
-        
+
 
     def class_stratified_add_data(self, dataset, cpt, model=None, desired_attrs=None):
         if not hasattr(self, 'task'):
@@ -100,6 +101,9 @@ class Buffer(Dataset):
                     if hasattr(self, 'task_labels') or desired_attrs is not None and 'task_labels' in desired_attrs:
                         add_dict['task_labels'] = (torch.ones(len(not_aug_inputs)) *
                                                     (self.task))[flags]
+                    if hasattr[self, 'clusterID'] or desired_attrs is not None and 'clusterID' in desired_attrs:
+                        partition_func = create_partition_func_1nn(input.shape, 5000)
+                        add_dict['clusterID'] = partition_func(not_aug_inputs[flags])
                     self.add_data(**add_dict)
         self.task += 1
 
@@ -126,7 +130,7 @@ class Buffer(Dataset):
             transform = lambda x: x
         else:
             transform = self.transform
-
+        gc.collect(generation = 2)
         inp = self.examples[index]
         ret_tuple = (transform(inp).to(self.device), inp)
         for attr_str in self.attributes[1:]:
@@ -153,44 +157,57 @@ class Buffer(Dataset):
                 setattr(self, attr_str, torch.zeros((self.buffer_size,
                         *attr.shape[1:]), dtype=typ, device=self.device))
 
-    def add_data(self, examples, labels=None, logits=None, task_labels=None, attention_maps=None, lip_values=None):
+    def add_data(self, examples, labels=None, logits=None, task_labels=None, clusterID = None, attention_maps=None, lip_values=None):
         """
         Adds the data to the memory buffer according to the reservoir strategy.
         :param examples: tensor containing the images
         :param labels: tensor containing the labels
         :param logits: tensor containing the outputs of the network
         :param task_labels: tensor containing the task labels
-        :return:
+        :return: List of indices where the data was added
         """
         if not hasattr(self, 'examples'):
             self.init_tensors(examples, labels, logits, task_labels)
 
         rix = []
+
         for i in range(examples.shape[0]):
             index = reservoir(self.num_seen_examples, self.buffer_size)
             self.num_seen_examples += 1
+
             if index >= 0:
                 if self.examples.device != self.device:
                     self.examples.to(self.device)
                 self.examples[index] = examples[i].to(self.device)
+                
                 if labels is not None:
                     if self.labels.device != self.device:
                         self.labels.to(self.device)
                     self.labels[index] = labels[i].to(self.device)
+
                 if logits is not None:
                     if self.logits.device != self.device:
                         self.logits.to(self.device)
                     self.logits[index] = logits[i].to(self.device)
+
                 if task_labels is not None:
                     if self.task_labels.device != self.device:
                         self.task_labels.to(self.device)
                     self.task_labels[index] = task_labels[i].to(self.device)
+
+                if clusterID is not None:
+                    if self.clusterID.device != self.device:
+                        self.clusterID.to(self.device)
+                
+                    self.clusterID[index] = clusterID[i].to(self.device)
+
                 if attention_maps is not None:
                     self.attention_maps[index] = [at[i].byte() for at in attention_maps]
+
                 if lip_values is not None:
                     self.lip_values[index] = [val[i].data for val in lip_values]
 
-            rix.append(index)
+        rix.append(index)
         return torch.tensor(rix).to(self.device)
 
     def get_data(self, size: int, transform: transforms=None, return_index=False, to_device=None) -> Tuple:
@@ -231,7 +248,7 @@ class Buffer(Dataset):
         if transform is None: transform = lambda x: x
         ret_tuple = (torch.stack([transform(ee.cpu())
                             for ee in self.examples[indexes]]).to(target_device),)
-        for attr_str in self.attributes[1:]:
+        for attr_str in self.attributes[:-1]:
             if hasattr(self, attr_str):
                 attr = getattr(self, attr_str).to(target_device)
                 ret_tuple += (attr[indexes],)
@@ -319,3 +336,37 @@ class Buffer(Dataset):
             if hasattr(self, attr_str):
                 delattr(self, attr_str)
         self.num_seen_examples = 0
+    
+    def get_data_by_clusterID(self, clusterID, transform: transforms = None, return_index=False):
+        """
+        Returns data based on the provided clusterID.
+        :param clusterID: the clusterID to filter the data
+        :param transform: the transformation to be applied (data augmentation)
+        :param return_index: if True, return indices along with data
+        :return: Tuple of data based on the clusterID
+        """
+        target_device = self.device
+
+        cluster_indices = [i for i, cid in enumerate(self.clusterID) if cid == clusterID]
+
+        if not cluster_indices:
+            # No data with the specified clusterID found
+            return None
+
+        if return_index:
+            choice = torch.tensor(cluster_indices).to(target_device)
+            ret_tuple = (choice,)
+        else:
+            choice = torch.tensor(cluster_indices).to(target_device)
+            ret_tuple = ()
+
+        if transform is None:
+            transform = lambda x: x
+
+        ret_tuple += (torch.stack([transform(ee.cpu()) for ee in self.examples[cluster_indices]]).to(target_device),)
+
+        for attr_str in self.attributes[:-1]:
+            if hasattr(self, attr_str):
+                attr = getattr(self, attr_str).to(target_device)
+                ret_tuple += (attr[cluster_indices],)
+        return ret_tuple

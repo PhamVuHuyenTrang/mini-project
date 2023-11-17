@@ -1,25 +1,25 @@
 
 from copy import deepcopy
-import sys
-sys.path.append("D:\Prj3")
 
+from functions.augmentations import normalize
 import torch
 import torch.nn.functional as F
-from functions.augmentations import normalize
 from datasets import get_dataset
 from functions.buffer import Buffer
 from functions.args import *
 from models.utils.continual_model import ContinualModel
-from functions.lipschitz import RobustnessOptimizer, add_regularization_args
 from functions.distributed import make_dp
+from functions.lipschitz import RobustnessOptimizer, add_regularization_args
+from functions.create_partition import create_partition_func_1nn
 from functions.no_bn import bn_track_stats
 import numpy as np
-import cv2
+from functions.augmentations import rotate_30_degrees, rotate_60_degrees, add_noise, change_colors
 
+partition_func = create_partition_func_1nn((32, 32, 3), n_centroids=5000)
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Continual Learning via iCaRL.'
-                            'Treated with new loss!')
+                            'Treated with Lipschitz constraints!')
 
     add_management_args(parser)
     add_experiment_args(parser)
@@ -47,18 +47,19 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
 
     if t_idx > 0:
         # 1) First, subsample prior classes
-        buf_x, buf_y, buf_l = self.buffer.get_all_data()
+        buf_x, buf_y, buf_l, buf_clusterID = self.buffer.get_all_data()
 
         mem_buffer.empty()
         for _y in buf_y.unique():
             idx = (buf_y == _y)
-            _y_x, _y_y, _y_l = buf_x[idx], buf_y[idx], buf_l[idx]
+            _y_x, _y_y, _y_l, _y_clusterID = buf_x[idx], buf_y[idx], buf_l[idx],buf_clusterID[idx]
             mem_buffer.add_data(
                 examples=_y_x[:samples_per_class],
                 labels=_y_y[:samples_per_class],
-                logits=_y_l[:samples_per_class]
+                logits=_y_l[:samples_per_class],
+                clusterID = _y_clusterID[:samples_per_class]
             )
-    
+
     # 2) Then, fill with current tasks
     loader = dataset.train_loader
     mean, std = dataset.get_denormalization_transform().mean, dataset.get_denormalization_transform().std
@@ -115,44 +116,18 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
             mem_buffer.add_data(
                 examples=_x[idx_min:idx_min + 1].to(self.device),
                 labels=_y[idx_min:idx_min + 1].to(self.device),
-                logits=_l[idx_min:idx_min + 1].to(self.device)
+                logits=_l[idx_min:idx_min + 1].to(self.device),
+                clusterID=partition_func(x[idx_min:idx_min + 1]).to(self.device)
+
             )
 
             running_sum += feats[idx_min:idx_min + 1]
             feats[idx_min] = feats[idx_min] + 1e6
             i += 1
 
-
     assert len(mem_buffer.examples) <= mem_buffer.buffer_size
     assert mem_buffer.num_seen_examples <= mem_buffer.buffer_size
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
-    print(mem_buffer.examples)
-    print(type(mem_buffer.examples))
-    if t_idx <= 5:
 
-        _, labels, (centers) = cv2.kmeans(mem_buffer.examples.cpu().numpy().reshape((-1,3)), t_idx + 1, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
-    
-    else:
-
-        # define stopping criteria
-        _, labels, (centers) = cv2.kmeans(mem_buffer.examples.cpu().numpy().reshape((-1,3)), t_idx + 1, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
-
-    def ClusterIndicesNumpy(clustNum, labels_array): #numpy 
-        return np.where(labels_array == clustNum)[0]
-
-    #def ClusterIndicesComp(clustNum, labels_array): #list comprehension
-        #return np.array([i for i, x in enumerate(labels_array) if x == clustNum])
-
-    mem_buffer_clustered = []
-    if t_idx <= 5:
-        for i in range(t_idx + 1):
-            mem_buffer_clustered.append(ClusterIndicesNumpy(i, labels))
-    else:
-        for i in range(5):
-            mem_buffer_clustered.append(ClusterIndicesNumpy(i, labels))
-    
-    print(len(mem_buffer_clustered))
-    mem_buffer = np.array(mem_buffer_clustered)
     self.net.train(mode)
 
 
@@ -195,42 +170,107 @@ class ICarlLipschitz(RobustnessOptimizer):
         pred = (self.class_means.unsqueeze(0) - feats).pow(2).sum(2)
         return -pred
 
-    def max_pairwise_difference(array_list):
-        max_differences = []
-
-        for array in array_list:
-            max_difference = np.abs(array - array[:, None]).max()
-            max_differences.append(max_difference)
-
-        return max_differences
-    
     def observe(self, inputs: torch.Tensor, labels: torch.Tensor, not_aug_inputs: torch.Tensor, logits=None, epoch=None):
-        if not hasattr(self, 'classes_so_far_buffer'):
-            self.classes_so_far_buffer = labels.unique().to(labels.device)
-            self.register_buffer('classes_so_far', self.classes_so_far_buffer)
+        if not hasattr(self, 'classes_so_far'):
+            self.register_buffer('classes_so_far', labels.unique().to(self.classes_so_far.device))
         else:
-            self.classes_so_far_buffer = torch.cat((self.classes_so_far_buffer, labels.to(self.classes_so_far_buffer.device))).unique()
-
-            self.register_buffer('classes_so_far', self.classes_so_far_buffer)
+            self.register_buffer('classes_so_far', torch.cat((
+                self.classes_so_far, labels.to(self.classes_so_far.device))).unique())
 
         self.class_means = None
         if self.current_task > 0:
             with torch.no_grad():
                 logits = torch.sigmoid(self.icarl_old_net(inputs))
         self.opt.zero_grad()
-        loss, output_features = self.get_loss(inputs, labels, self.current_task, logits)
-        print(loss)
-        print(len(output_features))
-        # New losses
-        if not self.buffer.is_empty():
+        loss, _ = self.get_loss(inputs, labels, self.current_task, logits)
+        
+        # Robustness losses (New regularization)
+        unique_labels = torch.unique(labels)
+        num_classes_so_far = unique_labels.numel()
 
-            if self.args.linear_reg != 0:
-                for output_feature in output_features:
-                    loss += self.max_pairwise_difference(output_feature)
-            
-            #if self.args.loss_reg != 0:
-                #for cross_entropy_loss in cross_entropy_losses:
-                    #loss += self.max_pairwise_difference(cross_entropy_loss)
+
+        if not self.buffer.is_empty():
+            mean, std = self.dataset.get_denormalization_transform().mean, self.dataset.get_denormalization_transform().std
+            buffer_x, buffer_y, buffer_logits = self.buffer.get_all_data()
+
+            rotate_30_degrees_data =   rotate_30_degrees(self.buffer.examples, mean, std)
+            rotate_60_degrees_data = rotate_60_degrees(self.buffer.examples, mean, std)
+            add_noise_data = add_noise(self.buffer.examples, mean, std)
+            change_colors_data = change_colors(self.buffer.examples, mean, std)
+            augment_examples = torch.cat([rotate_30_degrees_data, rotate_60_degrees_data, add_noise_data, change_colors_data], dim=0)
+
+            rotate_30_degrees_logits = torch.sigmoid(self.net(rotate_30_degrees_data))
+            rotate_60_degrees_logits = torch.sigmoid(self.net(rotate_60_degrees_data))
+            add_noise_logits = torch.sigmoid(self.net(add_noise_data))
+            change_colors_logits = torch.sigmoid(self.net(change_colors_data))
+            augmented_logits = torch.cat([rotate_30_degrees_logits, rotate_60_degrees_logits, add_noise_logits, change_colors_logits], dim=0)
+
+            rotate_30_degrees_cluster_id = partition_func(rotate_30_degrees_data)
+            rotate_60_degrees_cluster_id = partition_func(rotate_60_degrees_data)
+            add_noise_cluster_id = partition_func(add_noise_data)
+            change_colors_cluster_id = partition_func(change_colors_data)
+            augmented_cluster_ids = torch.cat([rotate_30_degrees_cluster_id, rotate_60_degrees_cluster_id, add_noise_cluster_id, change_colors_cluster_id], dim=0)
+
+            rotate_30_degrees_augment = torch.cat([rotate_30_degrees_data, buffer_y.unsqueeze(1), rotate_30_degrees_logits, rotate_30_degrees_cluster_id.unsqueeze(1)], dim=1)
+            rotate_60_degrees_augment = torch.cat([rotate_60_degrees_data, buffer_y.unsqueeze(1), rotate_60_degrees_logits, rotate_60_degrees_cluster_id.unsqueeze(1)], dim=1)
+            add_noise_augment = torch.cat([add_noise_data, buffer_y.unsqueeze(1), add_noise_logits, add_noise_cluster_id.unsqueeze(1)], dim=1)
+            change_colors_augment = torch.cat([change_colors_data, buffer_y.unsqueeze(1), change_colors_logits, change_colors_cluster_id.unsqueeze(1)], dim=1)
+
+            #augment_data = torch.cat([rotate_30_degrees_augment, rotate_60_degrees_augment, add_noise_augment, change_colors_augment], dim=0)
+
+
+            buffer_cluster_ids = self.buffer.clusterID
+
+            #Use local (?) output
+            #buffer_outputs_tensor = torch.zeros((max(buffer_cluster_ids) + 1, self.buffer.buffer_size, num_classes_so_far), device=self.device)
+            #augmented_outputs_tensor = torch.zeros((max(augmented_cluster_ids) + 1, self.buffer.buffer_size * 4, num_classes_so_far), device=self.device)
+
+            #for cluster_id in range(max(buffer_cluster_ids) + 1):
+                #buffer_data = self.buffer.get_data_by_clusterID(cluster_id, transform=self.transform)
+                #if buffer_data is not None:
+                    #buffer_x, buffer_y, buffer_logits, buffer_cluster_ids = buffer_data
+                    #buffer_outputs = torch.sigmoid(self.net(buffer_x))
+                    #buffer_outputs_tensor[cluster_id, :len(buffer_x), :] = buffer_outputs
+
+                #augmented_data = augment_data[cluster_id == augmented_cluster_ids]
+                #if len(augmented_data) > 0:
+                # Compute output for augmented data
+                    #augmented_outputs = torch.sigmoid(self.net(augmented_data))
+                    #augmented_outputs_tensor[cluster_id, :len(augmented_data), :] = augmented_outputs
+                    #pairwise_distances = torch.cdist(buffer_outputs_tensor[cluster_id, :len(buffer_x), :],
+                                                 #augmented_outputs_tensor[cluster_id, :len(augmented_data), :])
+                    #max_distance = pairwise_distances.max()
+                    #loss += max_distance
+
+
+            #use local (?) loss
+
+            buffer_losses_tensor = torch.zeros(self.buffer.buffer_size, device=self.device)
+            augmented_losses_tensor = torch.zeros(self.buffer.buffer_size * 4, device=self.device)
+            for cluster_id in range(max(buffer_cluster_ids) + 1):
+                buffer_data = self.buffer.get_data_by_clusterID(cluster_id, transform=self.transform)
+                if buffer_data is not None:
+                    buffer_examples, buffer_labels, buffer_logits, buffer_cluster_ids = buffer_data
+                    buffer_outputs = self.net(buffer_examples)
+                    buffer_loss = F.binary_cross_entropy_with_logits(buffer_outputs, buffer_labels.long(), reduction='none')
+                    buffer_losses_tensor[buffer_cluster_ids == cluster_id] += buffer_loss  
+                augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
+                if len(augmented_mask) > 0:
+                    augmented_example = augment_examples[augmented_mask]
+                    augmented_label = buffer_labels[augmented_mask]
+                    augmented_outputs = self.net(augmented_example)
+                    augmented_loss = F.binary_cross_entropy_with_logits(augmented_outputs, augmented_label, reduction='none')
+                    augmented_losses_tensor[augmented_mask] += augmented_loss
+
+            max_diff = torch.zeros(max(buffer_cluster_ids) + 1, device=self.device)
+            for cluster_id in range(max(buffer_cluster_ids) + 1):
+                buffer_mask = (buffer_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
+                augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
+
+                if len(buffer_mask) > 0 and len(augmented_mask) > 0:
+                    diff = torch.abs(buffer_losses_tensor[buffer_mask].unsqueeze(1) - augmented_losses_tensor[augmented_mask].unsqueeze(0))
+                    max_diff[cluster_id] = diff.max()
+            loss += max_diff.sum()
 
         loss.backward()
 
@@ -278,17 +318,14 @@ class ICarlLipschitz(RobustnessOptimizer):
         return loss, output_features
 
     def begin_task(self, dataset):
-        print("start0")
-        print(self.current_task)
         if self.current_task == 0:
             self.load_initial_checkpoint()
-            print("load_initial_checkpoints")
             self.reset_classifier()
-            print("reset classifier")
+                                
             self.net.set_return_prerelu(True)
-            print("set_return_prerelu")
+
             self.init_net(dataset)
-            print("init_net")
+
         if self.current_task > 0:
             dataset.train_loader.dataset.targets = np.concatenate(
                 [dataset.train_loader.dataset.targets,
@@ -299,13 +336,11 @@ class ICarlLipschitz(RobustnessOptimizer):
                         self.buffer.examples[i].type(torch.uint8).cpu())
                         for i in range(self.buffer.num_seen_examples)]).squeeze(1)])
             else:
-                print("Start")
                 dataset.train_loader.dataset.data = np.concatenate(
                     [dataset.train_loader.dataset.data, torch.stack([((
                         self.buffer.examples[i] * 255).type(torch.uint8).cpu())
                         for i in range(self.buffer.num_seen_examples)]).numpy().swapaxes(1, 3)])
-                
-                print("End")
+
 
     def end_task(self, dataset) -> None:
         self.icarl_old_net = get_dataset(self.args).get_backbone().to(self.device)
@@ -330,7 +365,7 @@ class ICarlLipschitz(RobustnessOptimizer):
         transform = self.dataset.get_normalization_transform()
         class_means = []
         examples, labels, _ = self.buffer.get_all_data(transform)
-        for _y in self.classes_so_far_buffer:
+        for _y in self.classes_so_far:
             x_buf = torch.stack(
                 [examples[i]
                  for i in range(0, len(examples))

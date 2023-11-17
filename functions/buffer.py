@@ -102,7 +102,7 @@ class Buffer(Dataset):
                         add_dict['task_labels'] = (torch.ones(len(not_aug_inputs)) *
                                                     (self.task))[flags]
                     if hasattr[self, 'clusterID'] or desired_attrs is not None and 'clusterID' in desired_attrs:
-                        partition_func = create_partition_func_1nn(input.shape, 5000)
+                        partition_func = create_partition_func_1nn((84, 84, 3), n_centroids=5000)
                         add_dict['clusterID'] = partition_func(not_aug_inputs[flags])
                     self.add_data(**add_dict)
         self.task += 1

@@ -142,7 +142,7 @@ class Buffer(Dataset):
 
 
     def init_tensors(self, examples: torch.Tensor, labels: torch.Tensor,
-                     logits: torch.Tensor, task_labels: torch.Tensor) -> None:
+                     logits: torch.Tensor, clusterID: torch.Tensor ,task_labels: torch.Tensor) -> None:
         """
         Initializes just the required tensors.
         :param examples: tensor containing the images

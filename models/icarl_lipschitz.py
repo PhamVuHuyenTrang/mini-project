@@ -170,11 +170,13 @@ class ICarlLipschitz(RobustnessOptimizer):
         return -pred
 
     def observe(self, inputs: torch.Tensor, labels: torch.Tensor, not_aug_inputs: torch.Tensor, logits=None, epoch=None):
-        if not hasattr(self, 'classes_so_far'):
-            self.register_buffer('classes_so_far', labels.unique().to(self.classes_so_far.device))
+        if not hasattr(self, 'classes_so_far_buffer'):
+            self.classes_so_far_buffer = labels.unique().to(labels.device)
+            self.register_buffer('classes_so_far', self.classes_so_far_buffer)
         else:
-            self.register_buffer('classes_so_far', torch.cat((
-                self.classes_so_far, labels.to(self.classes_so_far.device))).unique())
+            self.classes_so_far_buffer = torch.cat((self.classes_so_far_buffer, labels.to(self.classes_so_far_buffer.device))).unique()
+
+            self.register_buffer('classes_so_far', self.classes_so_far_buffer)
 
         self.class_means = None
         if self.current_task > 0:

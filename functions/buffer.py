@@ -167,7 +167,7 @@ class Buffer(Dataset):
         :return: List of indices where the data was added
         """
         if not hasattr(self, 'examples'):
-            self.init_tensors(examples, labels, logits, task_labels)
+            self.init_tensors(examples, labels, logits, clusterID, task_labels)
 
         rix = []
 

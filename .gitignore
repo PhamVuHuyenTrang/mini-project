@@ -189,3 +189,5 @@ checkpoints
 
 data
 !data/ckpt
+
+*.pth

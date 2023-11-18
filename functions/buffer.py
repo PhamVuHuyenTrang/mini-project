@@ -198,7 +198,6 @@ class Buffer(Dataset):
                 if clusterID is not None:
                     if self.clusterID.device != self.device:
                         self.clusterID.to(self.device)
-                
                     self.clusterID[index] = clusterID[i].to(self.device)
 
                 if attention_maps is not None:
@@ -322,7 +321,7 @@ class Buffer(Dataset):
         if transform is None: transform = lambda x: x
         ret_tuple = (torch.stack([transform(ee.cpu())
                             for ee in self.examples]).to(self.device),)
-        for attr_str in self.attributes[1:]:
+        for attr_str in self.attributes[1:4]:
             if hasattr(self, attr_str):
                 attr = getattr(self, attr_str)
                 ret_tuple += (attr,)
@@ -365,7 +364,7 @@ class Buffer(Dataset):
 
         ret_tuple += (torch.stack([transform(ee.cpu()) for ee in self.examples[cluster_indices]]).to(target_device),)
 
-        for attr_str in self.attributes[:-1]:
+        for attr_str in self.attributes[1:-1]:
             if hasattr(self, attr_str):
                 attr = getattr(self, attr_str).to(target_device)
                 ret_tuple += (attr[cluster_indices],)

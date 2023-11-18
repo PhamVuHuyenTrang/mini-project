@@ -26,7 +26,7 @@ def create_partition_func_grid(input_size):
         res = torch.zeros(x.shape[0], dtype=torch.long).to(x.device)
         for index in index_list:
             res = res * 3 + (x[index] > 1 / 3) + (x[index] > 2 / 3)
-        return res
+        return res.long()
 
     return _cal_partition
 
@@ -58,6 +58,6 @@ def create_partition_func_1nn(input_size, n_centroids = 5000):
         x_flatten = x.flatten(start_dim=1)
         distance_matrix = torch.cdist(x_flatten, centroids)
         res = distance_matrix.argmin(dim=1)
-        return res
+        return res.long()
 
     return _cal_partition

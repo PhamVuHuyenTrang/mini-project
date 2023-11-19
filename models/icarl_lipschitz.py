@@ -4,6 +4,7 @@ from copy import deepcopy
 from functions.augmentations import normalize
 import torch
 import torch.nn.functional as F
+from torchvision import transforms
 from datasets import get_dataset
 from functions.buffer import Buffer
 from functions.args import *
@@ -196,10 +197,27 @@ class ICarlLipschitz(RobustnessOptimizer):
             buffer_x, buffer_y, buffer_logits, _ = self.buffer.get_all_data()
             
             with torch.no_grad():
-                rotate_30_degrees_data = rotate_30_degrees(self.buffer.examples.clone().detach(), mean, std)
-                rotate_60_degrees_data = rotate_60_degrees(self.buffer.examples.clone().detach(), mean, std)
-                add_noise_data = add_noise(self.buffer.examples.clone().detach(), mean, std)
-                change_colors_data = change_colors(self.buffer.examples.clone().detach(), mean, std)
+                #rotate_30_degrees_data = rotate_30_degrees(self.buffer.examples.clone().detach(), mean, std)
+                transform30 = transforms.Compose([
+                transforms.RandomRotation(30),
+                transforms.Normalize(mean, std),
+            ])
+                transform60 = transforms.Compose([
+                transforms.RandomRotation(60),
+                transforms.Normalize(mean, std),
+            ])
+                transform45 = transforms.Compose([
+                transforms.RandomRotation(45),
+                transforms.Normalize(mean, std),
+            ])
+                transform75 = transforms.Compose([
+                transforms.RandomRotation(75),
+                transforms.Normalize(mean, std),
+            ])
+                rotate_30_degrees_data = transform30(self.buffer.examples.clone().detach())
+                rotate_60_degrees_data = transform60(self.buffer.examples.clone().detach())
+                add_noise_data = transform45(self.buffer.examples.clone().detach())
+                change_colors_data = transform75(self.buffer.examples.clone().detach())
                 augment_examples = torch.cat([rotate_30_degrees_data, rotate_60_degrees_data, add_noise_data, change_colors_data], dim=0)
 
 
@@ -284,7 +302,7 @@ class ICarlLipschitz(RobustnessOptimizer):
         loss.backward()
 
         self.opt.step()
-
+        torch.cuda.empty_cache()
         return loss.item(), 0, 0, 0, 0
 
     @staticmethod
@@ -375,11 +393,15 @@ class ICarlLipschitz(RobustnessOptimizer):
         class_means = []
         examples, labels, _, _ = self.buffer.get_all_data(transform)
         for _y in self.classes_so_far:
-            x_buf = torch.stack(
-                [examples[i]
-                 for i in range(0, len(examples))
-                 if labels[i].cpu() == _y]
-            ).to(self.device)
-            with bn_track_stats(self, False):
-                class_means.append(self.net(x_buf, returnt='features').mean(0).flatten())
+            x_buf_list = [examples[i] for i in range(0, len(examples)) if labels[i].cpu() == _y]
+
+            if x_buf_list:
+                x_buf = torch.stack(x_buf_list, dim=0).to(self.device)
+                with bn_track_stats(self, False):
+                    class_means.append(self.net(x_buf, returnt='features').mean(0).flatten())
+            else:
+                x_buf_list_dummy = [examples[0]]
+                x_buf_dummy = torch.stack(x_buf_list_dummy, dim=0).to(self.device)
+
+                class_means.append(torch.zeros_like(self.net(x_buf_dummy, returnt='features').mean(0).flatten()))
         self.class_means = torch.stack(class_means)

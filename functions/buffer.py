@@ -206,7 +206,7 @@ class Buffer(Dataset):
                 if lip_values is not None:
                     self.lip_values[index] = [val[i].data for val in lip_values]
 
-        rix.append(index)
+            rix.append(index)
         return torch.tensor(rix).to(self.device)
 
     def get_data(self, size: int, transform: transforms=None, return_index=False, to_device=None) -> Tuple:

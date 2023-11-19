@@ -132,8 +132,8 @@ class SequentialMiniImagenet(ContinualDataset):
     @staticmethod
     def get_setting():
         return Namespace(**{
-            "batch_size":64,
-            "minibatch_size":64,
+            "batch_size":16,
+            "minibatch_size": 16,
             "scheduler":"simple",
             "scheduler_rate":0.2,
             "n_epochs":1,

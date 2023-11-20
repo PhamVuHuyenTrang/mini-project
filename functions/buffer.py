@@ -369,33 +369,3 @@ class Buffer(Dataset):
                 attr = getattr(self, attr_str).to(target_device)
                 ret_tuple += (attr[cluster_indices],)
         return ret_tuple
-
-    def get_data_by_clusterID2(self, clusterID, transform: transforms = None, return_index=False):
-        """
-        Returns data based on the provided clusterID.
-        :param clusterID: the clusterID to filter the data
-        :param transform: the transformation to be applied (data augmentation)
-        :param return_index: if True, return indices along with data
-        :return: Tuple of data based on the clusterID
-        """
-        target_device = self.device
-
-        idx = (self.clusterID == clusterID).nonzero().squeeze(1)
-
-        if return_index:
-            choice = idx.clone().detach().to(target_device)
-            ret_tuple = (choice,)
-        else:
-            choice = idx.clone().detach().to(target_device)
-            ret_tuple = ()
-
-        if transform is None:
-            transform = lambda x: x
-
-        ret_tuple += (torch.stack([transform(ee.cpu()) for ee in self.examples[idx]]).to(target_device),)
-
-        for attr_str in self.attributes[1:-1]:
-            if hasattr(self, attr_str):
-                attr = getattr(self, attr_str).to(target_device)
-                ret_tuple += (attr[idx],)
-        return ret_tuple

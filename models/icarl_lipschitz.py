@@ -194,10 +194,9 @@ class ICarlLipschitz(RobustnessOptimizer):
         if not self.buffer.is_empty():
             print("start buffer")
             mean, std = self.dataset.get_denormalization_transform().mean, self.dataset.get_denormalization_transform().std
-            buffer_x, buffer_y, buffer_logits, _ = self.buffer.get_all_data()
+            buffer_x, buffer_y, _, _ = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform)
             
             with torch.no_grad():
-                #rotate_30_degrees_data = rotate_30_degrees(self.buffer.examples.clone().detach(), mean, std)
                 transform30 = transforms.Compose([
                 transforms.RandomRotation(30),
                 transforms.Normalize(mean, std),
@@ -214,59 +213,18 @@ class ICarlLipschitz(RobustnessOptimizer):
                 transforms.RandomRotation(75),
                 transforms.Normalize(mean, std),
             ])
-                rotate_30_degrees_data = transform30(self.buffer.examples.clone().detach())
-                rotate_60_degrees_data = transform60(self.buffer.examples.clone().detach())
-                add_noise_data = transform45(self.buffer.examples.clone().detach())
-                change_colors_data = transform75(self.buffer.examples.clone().detach())
+                rotate_30_degrees_data = transform30(buffer_x).clone().detach()
+                rotate_60_degrees_data = transform60(buffer_x).clone().detach()
+                add_noise_data = transform45(buffer_x).clone().detach()
+                change_colors_data = transform75(buffer_x).clone().detach()
                 augment_examples = torch.cat([rotate_30_degrees_data, rotate_60_degrees_data, add_noise_data, change_colors_data], dim=0)
 
-
-            rotate_30_degrees_logits = torch.sigmoid(self.net(rotate_30_degrees_data))
-            rotate_60_degrees_logits = torch.sigmoid(self.net(rotate_60_degrees_data))
-            add_noise_logits = torch.sigmoid(self.net(add_noise_data))
-            change_colors_logits = torch.sigmoid(self.net(change_colors_data))
-            augmented_logits = torch.cat([rotate_30_degrees_logits, rotate_60_degrees_logits, add_noise_logits, change_colors_logits], dim=0)
-            augmented_labels = torch.argmax(augmented_logits, dim=1)
-            # print("finish forwarding augmented data")
-            
-            rotate_30_degrees_cluster_id = partition_func(rotate_30_degrees_data)
-            rotate_60_degrees_cluster_id = partition_func(rotate_60_degrees_data)
-            add_noise_cluster_id = partition_func(add_noise_data)
-            change_colors_cluster_id = partition_func(change_colors_data)
-            augmented_cluster_ids = torch.cat([rotate_30_degrees_cluster_id, rotate_60_degrees_cluster_id, add_noise_cluster_id, change_colors_cluster_id], dim=0)
-
-            # pdt commented
-            # rotate_30_degrees_augment = torch.cat([rotate_30_degrees_data, buffer_y.unsqueeze(1), rotate_30_degrees_logits, rotate_30_degrees_cluster_id.unsqueeze(1)], dim=1)
-            # rotate_60_degrees_augment = torch.cat([rotate_60_degrees_data, buffer_y.unsqueeze(1), rotate_60_degrees_logits, rotate_60_degrees_cluster_id.unsqueeze(1)], dim=1)
-            # add_noise_augment = torch.cat([add_noise_data, buffer_y.unsqueeze(1), add_noise_logits, add_noise_cluster_id.unsqueeze(1)], dim=1)
-            # change_colors_augment = torch.cat([change_colors_data, buffer_y.unsqueeze(1), change_colors_logits, change_colors_cluster_id.unsqueeze(1)], dim=1)
-            # pdt comment ended
-            
-            #augment_data = torch.cat([rotate_30_degrees_augment, rotate_60_degrees_augment, add_noise_augment, change_colors_augment], dim=0)
+            augmented_logits = torch.sigmoid(self.net(augment_examples))
+            augmented_labels = torch.stack([buffer_y] * 4, dim=0).flatten()
+            augmented_cluster_ids = partition_func(augment_examples)
 
 
             buffer_cluster_ids = self.buffer.clusterID
-
-            #Use local (?) output
-            #buffer_outputs_tensor = torch.zeros((max(buffer_cluster_ids) + 1, self.buffer.buffer_size, num_classes_so_far), device=self.device)
-            #augmented_outputs_tensor = torch.zeros((max(augmented_cluster_ids) + 1, self.buffer.buffer_size * 4, num_classes_so_far), device=self.device)
-
-            #for cluster_id in range(max(buffer_cluster_ids) + 1):
-                #buffer_data = self.buffer.get_data_by_clusterID(cluster_id, transform=self.transform)
-                #if buffer_data is not None:
-                    #buffer_x, buffer_y, buffer_logits, buffer_cluster_ids = buffer_data
-                    #buffer_outputs = torch.sigmoid(self.net(buffer_x))
-                    #buffer_outputs_tensor[cluster_id, :len(buffer_x), :] = buffer_outputs
-
-                #augmented_data = augment_data[cluster_id == augmented_cluster_ids]
-                #if len(augmented_data) > 0:
-                # Compute output for augmented data
-                    #augmented_outputs = torch.sigmoid(self.net(augmented_data))
-                    #augmented_outputs_tensor[cluster_id, :len(augmented_data), :] = augmented_outputs
-                    #pairwise_distances = torch.cdist(buffer_outputs_tensor[cluster_id, :len(buffer_x), :],
-                                                 #augmented_outputs_tensor[cluster_id, :len(augmented_data), :])
-                    #max_distance = pairwise_distances.max()
-                    #loss += max_distance
 
 
             #use local (?) loss
@@ -274,13 +232,10 @@ class ICarlLipschitz(RobustnessOptimizer):
             buffer_losses_tensor = torch.zeros(self.buffer.buffer_size, device=self.device)
             augmented_losses_tensor = torch.zeros(self.buffer.buffer_size * 4, device=self.device)
             for cluster_id in buffer_cluster_ids.long().unique():
-                buffer_data = self.buffer.get_data_by_clusterID2(cluster_id, transform=self.transform, return_index=True)
+                buffer_data = self.buffer.get_data_by_clusterID(cluster_id, return_index=True)
                 if buffer_data is not None:
-                    idx, buffer_examples, buffer_labels, buffer_logits, buffer_cluster_ids = buffer_data
-                    # print("forwarding buffer data")
-                    # os.system("pause")
-                    buffer_outputs = self.net(buffer_examples)
-                    buffer_loss = F.cross_entropy(buffer_outputs, buffer_labels.long(), reduction='none')
+                    idx, _, buffer_labels, buffer_logits, buffer_cluster_ids = buffer_data
+                    buffer_loss = F.cross_entropy(buffer_logits, buffer_labels.long(), reduction='none')
                     buffer_losses_tensor[idx] += buffer_loss  
                     augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
                     if len(augmented_mask) > 0:
@@ -289,7 +244,6 @@ class ICarlLipschitz(RobustnessOptimizer):
                         augmented_loss = F.cross_entropy(augmented_outputs, augmented_label.long(), reduction='none')
                         augmented_losses_tensor[augmented_mask] += augmented_loss
 
-            # max_diff = torch.zeros(buffer_cluster_ids.unique().shape[0], device=self.device)
             for cluster_id in buffer_cluster_ids.unique():
                 buffer_mask = (buffer_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
                 augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
@@ -297,8 +251,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                 if len(buffer_mask) > 0 and len(augmented_mask) > 0:
                     diff = torch.abs(buffer_losses_tensor[buffer_mask].unsqueeze(1) - augmented_losses_tensor[augmented_mask].unsqueeze(0))
                     loss += diff.max()
-            # loss += max_diff.sum()
-
+                    
         loss.backward()
 
         self.opt.step()

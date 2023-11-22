@@ -243,8 +243,8 @@ class ICarlLipschitz(RobustnessOptimizer):
             augment_examples, augmented_labels, _, augmented_cluster_ids = self.buffer.get_augment_data(choice)
 
             augmented_logits = torch.sigmoid(self.net(augment_examples))
-            buffer_losses_tensor = F.binary_cross_entropy_with_logits(buffer_logits, buffer_y.long(), reduction='none')
-            augmented_losses_tensor = F.binary_cross_entropy_with_logits(augmented_logits, augmented_labels.long(), reduction='none')
+            buffer_losses_tensor = F.cross_entropy(buffer_logits, buffer_y.long(), reduction='none')
+            augmented_losses_tensor = F.cross_entropy(augmented_logits, augmented_labels.long(), reduction='none')
 
             for cluster_id in buffer_cluster_ids.unique():
                 buffer_mask = (buffer_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]

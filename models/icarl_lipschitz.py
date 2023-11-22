@@ -185,28 +185,6 @@ class ICarlLipschitz(RobustnessOptimizer):
                 logits = torch.sigmoid(self.icarl_old_net(inputs))
         self.opt.zero_grad()
         loss, _ = self.get_loss(inputs, labels, self.current_task, logits)
-        
-        # Robustness losses (New regularization)
-        unique_labels = torch.unique(labels)
-        num_classes_so_far = unique_labels.numel()
-
-
-        if not self.buffer.is_empty():
-            choice, buffer_x, buffer_y, buffer_logits, buffer_cluster_ids = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform, return_index=True)
-            
-            augment_examples, augmented_labels, _, augmented_cluster_ids = self.buffer.get_augment_data(choice)
-
-            augmented_logits = torch.sigmoid(self.net(augment_examples))
-            buffer_losses_tensor = F.cross_entropy(buffer_logits, buffer_y.long(), reduction='none')
-            augmented_losses_tensor = F.cross_entropy(augmented_logits, augmented_labels.long(), reduction='none')
-
-            for cluster_id in buffer_cluster_ids.unique():
-                buffer_mask = (buffer_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
-                augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
-
-                if len(buffer_mask) > 0 and len(augmented_mask) > 0:
-                    diff = torch.abs(buffer_losses_tensor[buffer_mask].unsqueeze(1) - augmented_losses_tensor[augmented_mask].unsqueeze(0))
-                    loss += diff.max()
 
         loss.backward()
 
@@ -237,19 +215,47 @@ class ICarlLipschitz(RobustnessOptimizer):
         if task_idx == 0:
             # Compute loss on the current task
             targets = self.eye[labels][:, :ac]
-            loss = F.binary_cross_entropy_with_logits(outputs, targets)
-            assert loss >= 0
+            loss_ce = F.binary_cross_entropy_with_logits(outputs, targets)
+            assert loss_ce >= 0
         else:
             targets = self.eye[labels][:, pc:ac]
             comb_targets = torch.cat((logits[:, :pc], targets), dim=1)
-            loss = F.binary_cross_entropy_with_logits(outputs, comb_targets)
-            assert loss >= 0
+            loss_ce = F.binary_cross_entropy_with_logits(outputs, comb_targets)
+            assert loss_ce >= 0
 
         if self.args.wd_reg:
             try:
-                loss += self.args.wd_reg * torch.sum(self.net.get_params() ** 2)
+                loss_wd = self.args.wd_reg * torch.sum(self.net.get_params() ** 2)
             except: # distributed 
-                loss += self.args.wd_reg * torch.sum(self.net.module.get_params() ** 2)
+                loss_wd = self.args.wd_reg * torch.sum(self.net.module.get_params() ** 2)
+        else:
+            loss_wd = 0
+
+        # Robustness losses (New regularization)
+        unique_labels = torch.unique(labels)
+        num_classes_so_far = unique_labels.numel()
+
+        loss_lr = torch.zeros_like(loss_ce)
+
+        if not self.buffer.is_empty():
+            choice, buffer_x, buffer_y, buffer_logits, buffer_cluster_ids = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform, return_index=True)
+            
+            augment_examples, augmented_labels, _, augmented_cluster_ids = self.buffer.get_augment_data(choice)
+
+            augmented_logits = torch.sigmoid(self.net(augment_examples))
+            buffer_losses_tensor = F.binary_cross_entropy_with_logits(buffer_logits, buffer_y.long(), reduction='none')
+            augmented_losses_tensor = F.binary_cross_entropy_with_logits(augmented_logits, augmented_labels.long(), reduction='none')
+
+            for cluster_id in buffer_cluster_ids.unique():
+                buffer_mask = (buffer_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
+                augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
+
+                if len(buffer_mask) > 0 and len(augmented_mask) > 0:
+                    diff = torch.abs(buffer_losses_tensor[buffer_mask].unsqueeze(1) - augmented_losses_tensor[augmented_mask].unsqueeze(0))
+                    loss_lr += diff.max()
+
+        # print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_lr: {loss_lr}')
+        loss = loss_ce + loss_wd + loss_lr
 
         return loss, output_features
 

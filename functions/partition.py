@@ -61,3 +61,34 @@ def create_partition_func_1nn(input_size, n_centroids = 5000):
         return res.long()
 
     return _cal_partition
+
+def dataid_in_cluster(clusterID):
+    '''
+    Extracts data indices sorted by clusterID.
+
+    Parameters:
+        clusterID (torch.tensor): Tensor containing cluster IDs.
+
+    Returns:
+        unique_cluster (torch.tensor): Unique cluster IDs appearing in the data.
+        sorted_data (torch.tensor): Data indices in each cluster, sorted in ascending order by clusterID.
+        id (torch.tensor): Indices indicating the start and end positions of each cluster.
+
+    Usage with buffer_clusterID or augment_clusterID:
+        unique_cluster, sorted_data, id = dataid_in_cluster(clusterID)
+        for i in range(len(unique_cluster)):
+            data[sorted_data[id[i]:id[i+1]]]
+    '''
+    # Obtain unique cluster IDs
+    unique_cluster = clusterID.unique().reshape(-1, 1)
+
+    # Create a tensor with repeated cluster IDs for comparison
+    cluster_repeat = torch.stack([clusterID] * len(unique_cluster), dim=0)
+
+    # Find non-zero indices where the cluster ID matches the unique cluster ID
+    nz = (cluster_repeat == unique_cluster).nonzero(as_tuple=True)
+
+    # Identify positions where the cluster transitions occur
+    transition_positions = nz[0][[0] + list(range(0, nz[0].shape[0]))] != nz[0][[-1] + list(range(1, nz[0].shape[0])) + [0]]
+
+    return unique_cluster, nz[1], transition_positions.nonzero()

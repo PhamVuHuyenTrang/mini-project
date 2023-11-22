@@ -6,7 +6,7 @@ from torch.functional import Tensor
 from torchvision import transforms
 from torch.utils.data import Dataset
 import gc
-from functions.create_partition import create_partition_func_1nn, create_partition_func_grid
+from functions.partition import create_partition_func_1nn, create_partition_func_grid
 from functions.no_bn import bn_track_stats
 
 

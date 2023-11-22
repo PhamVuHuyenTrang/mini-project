@@ -11,7 +11,7 @@ from functions.args import *
 from models.utils.continual_model import ContinualModel
 from functions.distributed import make_dp
 from functions.lipschitz import RobustnessOptimizer, add_regularization_args
-from functions.create_partition import create_partition_func_1nn
+from functions.partition import create_partition_func_1nn, dataid_in_cluster
 from functions.no_bn import bn_track_stats
 import numpy as np
 from functions.augmentations import rotate_30_degrees, rotate_60_degrees, add_noise, change_colors
@@ -200,13 +200,22 @@ class ICarlLipschitz(RobustnessOptimizer):
             buffer_losses_tensor = F.cross_entropy(buffer_logits, buffer_y.long(), reduction='none')
             augmented_losses_tensor = F.cross_entropy(augmented_logits, augmented_labels.long(), reduction='none')
 
-            for cluster_id in buffer_cluster_ids.unique():
-                buffer_mask = (buffer_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
-                augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
+            unique_buffer_cluster, buffer_id, buffer_partition = dataid_in_cluster(buffer_cluster_ids)
+            unique_augment_cluster, augment_id, augment_partition = dataid_in_cluster(augmented_cluster_ids)
+            local_robustness_loss = torch.zeros_like(loss)
+            for i in range(len(unique_buffer_cluster)):
+                cluster_id = unique_buffer_cluster[i]
+                max_buffer_loss = buffer_losses_tensor[buffer_id[buffer_partition[i]:buffer_partition[i+1]]].max()
+                min_buffer_loss = buffer_losses_tensor[buffer_id[buffer_partition[i]:buffer_partition[i+1]]].min()
+                
+                j = (unique_augment_cluster == cluster_id).nonzero().squeeze()
+                if j.numel() > 0:
+                    max_augment_loss = augmented_losses_tensor[augment_id[augment_partition[j[0]]:augment_partition[j[0]+1]]].max()
+                    min_augment_loss = augmented_losses_tensor[augment_id[augment_partition[j[0]]:augment_partition[j[0]+1]]].min()
+                    local_robustness_loss = torch.max(local_robustness_loss, torch.max(torch.abs(max_buffer_loss - min_augment_loss),
+                            torch.abs(max_augment_loss - min_buffer_loss)).squeeze())
 
-                if len(buffer_mask) > 0 and len(augmented_mask) > 0:
-                    diff = torch.abs(buffer_losses_tensor[buffer_mask].unsqueeze(1) - augmented_losses_tensor[augmented_mask].unsqueeze(0))
-                    loss += diff.max()
+            loss += local_robustness_loss
 
         loss.backward()
 

@@ -369,3 +369,73 @@ class Buffer(Dataset):
                 attr = getattr(self, attr_str).to(target_device)
                 ret_tuple += (attr[cluster_indices],)
         return ret_tuple
+
+    def generate_augment_data(self, mean, std, partition_func):
+        """
+        Generate augmented data for the memory buffer.
+        """
+        if not hasattr(self, 'examples'):
+            return
+
+        transform30 = transforms.Compose([
+            transforms.RandomRotation(30),
+            transforms.Normalize(mean, std),
+        ])
+        transform60 = transforms.Compose([
+            transforms.RandomRotation(60),
+            transforms.Normalize(mean, std),
+        ])
+        transform45 = transforms.Compose([
+            transforms.RandomRotation(45),
+            transforms.Normalize(mean, std),
+        ])
+        transform75 = transforms.Compose([
+            transforms.RandomRotation(75),
+            transforms.Normalize(mean, std),
+        ])
+        
+        if hasattr(self, 'examples'):
+            with torch.no_grad():
+                self.augment_examples = torch.cat([
+                    torch.stack([transform30(ee.cpu()) for ee in self.examples]),
+                    torch.stack([transform60(ee.cpu()) for ee in self.examples]),
+                    torch.stack([transform45(ee.cpu()) for ee in self.examples]),
+                    torch.stack([transform75(ee.cpu()) for ee in self.examples]),
+                ]).to(self.device)
+        
+        if hasattr(self, 'labels'):
+            with torch.no_grad():
+                self.augment_labels = torch.cat([self.labels] * 4).to(self.device)
+        
+        if hasattr(self, 'logits'):
+            self.augment_logits = None
+        
+        if hasattr(self, 'clusterID'):
+            with torch.no_grad():
+                self.augment_clusterID = partition_func(self.augment_examples)
+        
+        if hasattr(self, 'task_labels'):
+            with torch.no_grad():
+                self.augment_task_labels = torch.cat([self.task_labels] * 4).to(self.device)
+
+    def get_augment_data(self, choice):
+        """
+        Return augmented data.
+        """
+        ret_tuple = ()
+        if hasattr(self, 'augment_examples'):
+            augment_choice = torch.cat([choice,
+                                        choice + self.buffer_size,
+                                        choice + 2 * self.buffer_size,
+                                        choice + 3 * self.buffer_size])
+            ret_tuple = (self.augment_examples[augment_choice],)
+            for attr_str in ['augment_labels', 'augment_logits', 'augment_clusterID']:
+                if hasattr(self, attr_str):
+                    attr = getattr(self, attr_str)
+                    if attr is not None:
+                        ret_tuple += (attr[augment_choice],)
+                    else:
+                        ret_tuple += (attr,)
+            return ret_tuple
+        else:
+            return None

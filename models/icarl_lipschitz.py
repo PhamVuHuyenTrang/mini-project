@@ -192,57 +192,13 @@ class ICarlLipschitz(RobustnessOptimizer):
 
 
         if not self.buffer.is_empty():
-            print("start buffer")
-            mean, std = self.dataset.get_denormalization_transform().mean, self.dataset.get_denormalization_transform().std
-            buffer_x, buffer_y, _, _ = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform)
+            choice, buffer_x, buffer_y, buffer_logits, buffer_cluster_ids = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform, return_index=True)
             
-            with torch.no_grad():
-                transform30 = transforms.Compose([
-                transforms.RandomRotation(30),
-                transforms.Normalize(mean, std),
-            ])
-                transform60 = transforms.Compose([
-                transforms.RandomRotation(60),
-                transforms.Normalize(mean, std),
-            ])
-                transform45 = transforms.Compose([
-                transforms.RandomRotation(45),
-                transforms.Normalize(mean, std),
-            ])
-                transform75 = transforms.Compose([
-                transforms.RandomRotation(75),
-                transforms.Normalize(mean, std),
-            ])
-                rotate_30_degrees_data = transform30(buffer_x).clone().detach()
-                rotate_60_degrees_data = transform60(buffer_x).clone().detach()
-                add_noise_data = transform45(buffer_x).clone().detach()
-                change_colors_data = transform75(buffer_x).clone().detach()
-                augment_examples = torch.cat([rotate_30_degrees_data, rotate_60_degrees_data, add_noise_data, change_colors_data], dim=0)
+            augment_examples, augmented_labels, _, augmented_cluster_ids = self.buffer.get_augment_data(choice)
 
             augmented_logits = torch.sigmoid(self.net(augment_examples))
-            augmented_labels = torch.stack([buffer_y] * 4, dim=0).flatten()
-            augmented_cluster_ids = partition_func(augment_examples)
-
-
-            buffer_cluster_ids = self.buffer.clusterID
-
-
-            #use local (?) loss
-
-            buffer_losses_tensor = torch.zeros(self.buffer.buffer_size, device=self.device)
-            augmented_losses_tensor = torch.zeros(self.buffer.buffer_size * 4, device=self.device)
-            for cluster_id in buffer_cluster_ids.long().unique():
-                buffer_data = self.buffer.get_data_by_clusterID(cluster_id, return_index=True)
-                if buffer_data is not None:
-                    idx, _, buffer_labels, buffer_logits, buffer_cluster_ids = buffer_data
-                    buffer_loss = F.cross_entropy(buffer_logits, buffer_labels.long(), reduction='none')
-                    buffer_losses_tensor[idx] += buffer_loss  
-                    augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
-                    if len(augmented_mask) > 0:
-                        augmented_label = augmented_labels[augmented_mask]
-                        augmented_outputs = augmented_logits[augmented_mask]
-                        augmented_loss = F.cross_entropy(augmented_outputs, augmented_label.long(), reduction='none')
-                        augmented_losses_tensor[augmented_mask] += augmented_loss
+            buffer_losses_tensor = F.cross_entropy(buffer_logits, buffer_y.long(), reduction='none')
+            augmented_losses_tensor = F.cross_entropy(augmented_logits, augmented_labels.long(), reduction='none')
 
             for cluster_id in buffer_cluster_ids.unique():
                 buffer_mask = (buffer_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
@@ -251,7 +207,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                 if len(buffer_mask) > 0 and len(augmented_mask) > 0:
                     diff = torch.abs(buffer_losses_tensor[buffer_mask].unsqueeze(1) - augmented_losses_tensor[augmented_mask].unsqueeze(0))
                     loss += diff.max()
-                    
+
         loss.backward()
 
         self.opt.step()
@@ -334,6 +290,8 @@ class ICarlLipschitz(RobustnessOptimizer):
         self.net.train()
         with torch.no_grad():
             icarl_fill_buffer(self, self.buffer, dataset, self.current_task)
+            mean, std = self.dataset.get_denormalization_transform().mean, self.dataset.get_denormalization_transform().std
+            self.buffer.generate_augment_data(mean, std, partition_func)
         self.current_task += 1
         self.class_means = None
 

@@ -377,30 +377,37 @@ class Buffer(Dataset):
         if not hasattr(self, 'examples'):
             return
 
-        transform30 = transforms.Compose([
+        self.transform30 = transforms.Compose([
             transforms.RandomRotation(30),
             transforms.Normalize(mean, std),
         ])
-        transform60 = transforms.Compose([
+        self.transform60 = transforms.Compose([
             transforms.RandomRotation(60),
             transforms.Normalize(mean, std),
         ])
-        transform45 = transforms.Compose([
+        self.transform45 = transforms.Compose([
             transforms.RandomRotation(45),
             transforms.Normalize(mean, std),
         ])
-        transform75 = transforms.Compose([
+        self.transform75 = transforms.Compose([
             transforms.RandomRotation(75),
             transforms.Normalize(mean, std),
         ])
+
+        setattr(self, 'partition_func', partition_func)
         
+
+    def get_augment_data(self, choice):
+        """
+        Return augmented data.
+        """
         if hasattr(self, 'examples'):
             with torch.no_grad():
                 self.augment_examples = torch.cat([
-                    torch.stack([transform30(ee.cpu()) for ee in self.examples]),
-                    torch.stack([transform60(ee.cpu()) for ee in self.examples]),
-                    torch.stack([transform45(ee.cpu()) for ee in self.examples]),
-                    torch.stack([transform75(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform30(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform60(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform45(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform75(ee.cpu()) for ee in self.examples]),
                 ]).to(self.device)
         
         if hasattr(self, 'labels'):
@@ -412,16 +419,13 @@ class Buffer(Dataset):
         
         if hasattr(self, 'clusterID'):
             with torch.no_grad():
-                self.augment_clusterID = partition_func(self.augment_examples)
+                self.augment_clusterID = self.partition_func(self.augment_examples)
         
         if hasattr(self, 'task_labels'):
             with torch.no_grad():
                 self.augment_task_labels = torch.cat([self.task_labels] * 4).to(self.device)
 
-    def get_augment_data(self, choice):
-        """
-        Return augmented data.
-        """
+
         ret_tuple = ()
         if hasattr(self, 'augment_examples'):
             augment_choice = torch.cat([choice,

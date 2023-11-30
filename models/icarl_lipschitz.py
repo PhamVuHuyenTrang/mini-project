@@ -312,9 +312,7 @@ class ICarlLipschitz(RobustnessOptimizer):
             buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
 
             for af, bf in zip(augment_features, buffer_feature):
-                repeat_shape = af.shape
-
-                bf = torch.stack([bf] * (af.shape[0] // bf.shape[0]))
+                bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))
                 distance = ((bf - af) ** 2).sum(axis=(1, 2))
                 loss_lr += distance
 

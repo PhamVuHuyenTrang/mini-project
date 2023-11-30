@@ -50,6 +50,11 @@ def parse_args():
 
 
 def main(args=None):
+    if torch.cuda.is_available():
+        print("cuda is available")
+    else:
+        print("cuda is not available")
+        exit(0)
     lecun_fix()
     if args is None:
         args = parse_args()

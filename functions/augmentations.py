@@ -19,7 +19,7 @@ def rotate_30_degrees(x, mean, std):
         rotated_tensor = F.to_tensor(rotated_img)
         rotated_tensors.append(rotated_tensor)
 
-    rotated_batch = torch.stack(rotated_tensors, dim=0)
+    rotated_batch = torch.stack(rotated_tensors, dim=0).to(x.device)
 
     normalized_batch = normalize(rotated_batch, mean, std)
     return normalized_batch.squeeze(0) if len(x.shape) == 3 else normalized_batch
@@ -35,7 +35,7 @@ def rotate_60_degrees(x, mean, std):
         rotated_tensor = F.to_tensor(rotated_img)
         rotated_tensors.append(rotated_tensor)
 
-    rotated_batch = torch.stack(rotated_tensors, dim=0)
+    rotated_batch = torch.stack(rotated_tensors, dim=0).to(x.device)
 
     normalized_batch = normalize(rotated_batch, mean, std)
     return normalized_batch
@@ -62,7 +62,7 @@ def change_colors(x, mean, std):
         colored_tensor = F.to_tensor(colored_img)
         colored_tensors.append(colored_tensor)
 
-    colored_batch = torch.stack(colored_tensors, dim=0)
+    colored_batch = torch.stack(colored_tensors, dim=0).to(x.device)
 
     normalized_batch = normalize(colored_batch, mean, std)
     return normalized_batch

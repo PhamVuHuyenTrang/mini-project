@@ -189,3 +189,6 @@ checkpoints
 
 data
 !data/ckpt
+
+*.pth
+run.bat

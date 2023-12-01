@@ -281,6 +281,12 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
         
             model_stash['mean_accs'].append(mean_acc)
+
+            with open('output.txt', 'a') as f:
+
+                mean_acc_class_il, mean_acc_task_il = mean_acc
+                f.write('\nAccuracy for {} task(s): \t [Class-IL]: {} %'' \t [Task-IL]: {} %\n'.format(t+1, round(mean_acc_class_il, 2), round(mean_acc_task_il, 2)))
+
             if not args.disable_log:
                 logger.log(mean_acc)
                 logger.log_fullacc(accs)

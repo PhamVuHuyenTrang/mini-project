@@ -4,6 +4,7 @@ from copy import deepcopy
 from functions.augmentations import normalize
 import torch
 import torch.nn.functional as F
+from torchvision import transforms
 from datasets import get_dataset
 from functions.buffer import Buffer
 from functions.args import *
@@ -117,7 +118,7 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
                 examples=_x[idx_min:idx_min + 1].to(self.device),
                 labels=_y[idx_min:idx_min + 1].to(self.device),
                 logits=_l[idx_min:idx_min + 1].to(self.device),
-                clusterID=partition_func(x[idx_min:idx_min + 1]).to(self.device)
+                clusterID=partition_func(_x[idx_min:idx_min + 1]).to(self.device)
 
             )
 
@@ -184,99 +185,11 @@ class ICarlLipschitz(RobustnessOptimizer):
                 logits = torch.sigmoid(self.icarl_old_net(inputs))
         self.opt.zero_grad()
         loss, _ = self.get_loss(inputs, labels, self.current_task, logits)
-        
-        # Robustness losses (New regularization)
-        unique_labels = torch.unique(labels)
-        num_classes_so_far = unique_labels.numel()
-
-
-        if not self.buffer.is_empty():
-            mean, std = self.dataset.get_denormalization_transform().mean, self.dataset.get_denormalization_transform().std
-            buffer_x, buffer_y, buffer_logits = self.buffer.get_all_data()
-
-            rotate_30_degrees_data =   rotate_30_degrees(self.buffer.examples, mean, std)
-            rotate_60_degrees_data = rotate_60_degrees(self.buffer.examples, mean, std)
-            add_noise_data = add_noise(self.buffer.examples, mean, std)
-            change_colors_data = change_colors(self.buffer.examples, mean, std)
-            augment_examples = torch.cat([rotate_30_degrees_data, rotate_60_degrees_data, add_noise_data, change_colors_data], dim=0)
-
-            rotate_30_degrees_logits = torch.sigmoid(self.net(rotate_30_degrees_data))
-            rotate_60_degrees_logits = torch.sigmoid(self.net(rotate_60_degrees_data))
-            add_noise_logits = torch.sigmoid(self.net(add_noise_data))
-            change_colors_logits = torch.sigmoid(self.net(change_colors_data))
-            augmented_logits = torch.cat([rotate_30_degrees_logits, rotate_60_degrees_logits, add_noise_logits, change_colors_logits], dim=0)
-
-            rotate_30_degrees_cluster_id = partition_func(rotate_30_degrees_data)
-            rotate_60_degrees_cluster_id = partition_func(rotate_60_degrees_data)
-            add_noise_cluster_id = partition_func(add_noise_data)
-            change_colors_cluster_id = partition_func(change_colors_data)
-            augmented_cluster_ids = torch.cat([rotate_30_degrees_cluster_id, rotate_60_degrees_cluster_id, add_noise_cluster_id, change_colors_cluster_id], dim=0)
-
-            rotate_30_degrees_augment = torch.cat([rotate_30_degrees_data, buffer_y.unsqueeze(1), rotate_30_degrees_logits, rotate_30_degrees_cluster_id.unsqueeze(1)], dim=1)
-            rotate_60_degrees_augment = torch.cat([rotate_60_degrees_data, buffer_y.unsqueeze(1), rotate_60_degrees_logits, rotate_60_degrees_cluster_id.unsqueeze(1)], dim=1)
-            add_noise_augment = torch.cat([add_noise_data, buffer_y.unsqueeze(1), add_noise_logits, add_noise_cluster_id.unsqueeze(1)], dim=1)
-            change_colors_augment = torch.cat([change_colors_data, buffer_y.unsqueeze(1), change_colors_logits, change_colors_cluster_id.unsqueeze(1)], dim=1)
-
-            #augment_data = torch.cat([rotate_30_degrees_augment, rotate_60_degrees_augment, add_noise_augment, change_colors_augment], dim=0)
-
-
-            buffer_cluster_ids = self.buffer.clusterID
-
-            #Use local (?) output
-            #buffer_outputs_tensor = torch.zeros((max(buffer_cluster_ids) + 1, self.buffer.buffer_size, num_classes_so_far), device=self.device)
-            #augmented_outputs_tensor = torch.zeros((max(augmented_cluster_ids) + 1, self.buffer.buffer_size * 4, num_classes_so_far), device=self.device)
-
-            #for cluster_id in range(max(buffer_cluster_ids) + 1):
-                #buffer_data = self.buffer.get_data_by_clusterID(cluster_id, transform=self.transform)
-                #if buffer_data is not None:
-                    #buffer_x, buffer_y, buffer_logits, buffer_cluster_ids = buffer_data
-                    #buffer_outputs = torch.sigmoid(self.net(buffer_x))
-                    #buffer_outputs_tensor[cluster_id, :len(buffer_x), :] = buffer_outputs
-
-                #augmented_data = augment_data[cluster_id == augmented_cluster_ids]
-                #if len(augmented_data) > 0:
-                # Compute output for augmented data
-                    #augmented_outputs = torch.sigmoid(self.net(augmented_data))
-                    #augmented_outputs_tensor[cluster_id, :len(augmented_data), :] = augmented_outputs
-                    #pairwise_distances = torch.cdist(buffer_outputs_tensor[cluster_id, :len(buffer_x), :],
-                                                 #augmented_outputs_tensor[cluster_id, :len(augmented_data), :])
-                    #max_distance = pairwise_distances.max()
-                    #loss += max_distance
-
-
-            #use local (?) loss
-
-            buffer_losses_tensor = torch.zeros(self.buffer.buffer_size, device=self.device)
-            augmented_losses_tensor = torch.zeros(self.buffer.buffer_size * 4, device=self.device)
-            for cluster_id in range(max(buffer_cluster_ids) + 1):
-                buffer_data = self.buffer.get_data_by_clusterID(cluster_id, transform=self.transform)
-                if buffer_data is not None:
-                    buffer_examples, buffer_labels, buffer_logits, buffer_cluster_ids = buffer_data
-                    buffer_outputs = self.net(buffer_examples)
-                    buffer_loss = F.binary_cross_entropy_with_logits(buffer_outputs, buffer_labels.long(), reduction='none')
-                    buffer_losses_tensor[buffer_cluster_ids == cluster_id] += buffer_loss  
-                augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
-                if len(augmented_mask) > 0:
-                    augmented_example = augment_examples[augmented_mask]
-                    augmented_label = buffer_labels[augmented_mask]
-                    augmented_outputs = self.net(augmented_example)
-                    augmented_loss = F.binary_cross_entropy_with_logits(augmented_outputs, augmented_label, reduction='none')
-                    augmented_losses_tensor[augmented_mask] += augmented_loss
-
-            max_diff = torch.zeros(max(buffer_cluster_ids) + 1, device=self.device)
-            for cluster_id in range(max(buffer_cluster_ids) + 1):
-                buffer_mask = (buffer_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
-                augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
-
-                if len(buffer_mask) > 0 and len(augmented_mask) > 0:
-                    diff = torch.abs(buffer_losses_tensor[buffer_mask].unsqueeze(1) - augmented_losses_tensor[augmented_mask].unsqueeze(0))
-                    max_diff[cluster_id] = diff.max()
-            loss += max_diff.sum()
 
         loss.backward()
 
         self.opt.step()
-
+        torch.cuda.empty_cache()
         return loss.item(), 0, 0, 0, 0
 
     @staticmethod
@@ -302,19 +215,47 @@ class ICarlLipschitz(RobustnessOptimizer):
         if task_idx == 0:
             # Compute loss on the current task
             targets = self.eye[labels][:, :ac]
-            loss = F.binary_cross_entropy_with_logits(outputs, targets)
-            assert loss >= 0
+            loss_ce = F.binary_cross_entropy_with_logits(outputs, targets)
+            assert loss_ce >= 0
         else:
             targets = self.eye[labels][:, pc:ac]
             comb_targets = torch.cat((logits[:, :pc], targets), dim=1)
-            loss = F.binary_cross_entropy_with_logits(outputs, comb_targets)
-            assert loss >= 0
+            loss_ce = F.binary_cross_entropy_with_logits(outputs, comb_targets)
+            assert loss_ce >= 0
 
         if self.args.wd_reg:
             try:
-                loss += self.args.wd_reg * torch.sum(self.net.get_params() ** 2)
+                loss_wd = self.args.wd_reg * torch.sum(self.net.get_params() ** 2)
             except: # distributed 
-                loss += self.args.wd_reg * torch.sum(self.net.module.get_params() ** 2)
+                loss_wd = self.args.wd_reg * torch.sum(self.net.module.get_params() ** 2)
+        else:
+            loss_wd = 0
+
+        # Robustness losses (New regularization)
+        unique_labels = torch.unique(labels)
+        num_classes_so_far = unique_labels.numel()
+
+        loss_lr = torch.zeros_like(loss_ce)
+
+        if not self.buffer.is_empty():
+            choice, buffer_x, buffer_y, buffer_logits, buffer_cluster_ids = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform, return_index=True)
+            
+            augment_examples, augmented_labels, _, augmented_cluster_ids = self.buffer.get_augment_data(choice)
+
+            augmented_logits = torch.sigmoid(self.net(augment_examples))
+            buffer_losses_tensor = F.cross_entropy(buffer_logits, buffer_y.long(), reduction='none')
+            augmented_losses_tensor = F.cross_entropy(augmented_logits, augmented_labels.long(), reduction='none')
+
+            for cluster_id in buffer_cluster_ids.unique():
+                buffer_mask = (buffer_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
+                augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
+
+                if len(buffer_mask) > 0 and len(augmented_mask) > 0:
+                    diff = torch.abs(buffer_losses_tensor[buffer_mask].unsqueeze(1) - augmented_losses_tensor[augmented_mask].unsqueeze(0))
+                    loss_lr += 0.02 * diff.max()
+
+        # print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_lr: {loss_lr}')
+        loss = loss_ce + loss_wd + loss_lr
 
         return loss, output_features
 
@@ -355,6 +296,8 @@ class ICarlLipschitz(RobustnessOptimizer):
         self.net.train()
         with torch.no_grad():
             icarl_fill_buffer(self, self.buffer, dataset, self.current_task)
+            mean, std = self.dataset.get_denormalization_transform().mean, self.dataset.get_denormalization_transform().std
+            self.buffer.generate_augment_data(mean, std, partition_func)
         self.current_task += 1
         self.class_means = None
 
@@ -365,13 +308,17 @@ class ICarlLipschitz(RobustnessOptimizer):
         # This function caches class means
         transform = self.dataset.get_normalization_transform()
         class_means = []
-        examples, labels, _ = self.buffer.get_all_data(transform)
+        examples, labels, _, _ = self.buffer.get_all_data(transform)
         for _y in self.classes_so_far:
-            x_buf = torch.stack(
-                [examples[i]
-                 for i in range(0, len(examples))
-                 if labels[i].cpu() == _y]
-            ).to(self.device)
-            with bn_track_stats(self, False):
-                class_means.append(self.net(x_buf, returnt='features').mean(0).flatten())
+            x_buf_list = [examples[i] for i in range(0, len(examples)) if labels[i].cpu() == _y]
+
+            if x_buf_list:
+                x_buf = torch.stack(x_buf_list, dim=0).to(self.device)
+                with bn_track_stats(self, False):
+                    class_means.append(self.net(x_buf, returnt='features').mean(0).flatten())
+            else:
+                x_buf_list_dummy = [examples[0]]
+                x_buf_dummy = torch.stack(x_buf_list_dummy, dim=0).to(self.device)
+
+                class_means.append(torch.zeros_like(self.net(x_buf_dummy, returnt='features').mean(0).flatten()))
         self.class_means = torch.stack(class_means)

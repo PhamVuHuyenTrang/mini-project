@@ -129,6 +129,7 @@ def drop_connect(inputs, p, training):
 
     if not training:
         return inputs
+    
 
     batch_size = inputs.shape[0]
     keep_prob = 1 - p

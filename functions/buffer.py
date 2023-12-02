@@ -378,19 +378,19 @@ class Buffer(Dataset):
             return
 
         self.transform30 = transforms.Compose([
-            transforms.RandomRotation(30),
+            transforms.RandomRotation(1.5),
             transforms.Normalize(mean, std),
         ])
         self.transform60 = transforms.Compose([
-            transforms.RandomRotation(60),
+            transforms.RandomRotation(3),
             transforms.Normalize(mean, std),
         ])
         self.transform45 = transforms.Compose([
-            transforms.RandomRotation(45),
+            transforms.RandomRotation(4.5),
             transforms.Normalize(mean, std),
         ])
         self.transform75 = transforms.Compose([
-            transforms.RandomRotation(75),
+            transforms.RandomRotation(6),
             transforms.Normalize(mean, std),
         ])
 

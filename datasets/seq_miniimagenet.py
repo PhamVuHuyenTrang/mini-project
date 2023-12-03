@@ -138,7 +138,7 @@ class SequentialMiniImagenet(ContinualDataset):
             "scheduler_rate":0.2,
             "n_epochs":40,
             "pre_epochs":40,
-            "opt_steps":[35, 60, 75]})
+            "opt_steps":[10, 20, 35]})
             
     @staticmethod
     def get_backbone():

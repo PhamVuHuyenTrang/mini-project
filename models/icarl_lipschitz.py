@@ -211,17 +211,15 @@ class ICarlLipschitz(RobustnessOptimizer):
         epoch=None,
     ):
         if not hasattr(self, "classes_so_far"):
-            self.classes_so_far = labels.unique().to(labels.device)
-            self.register_buffer("classes_so_far", self.classes_so_far)
+            self.register_buffer("classes_so_far", labels.unique().to(labels.device))
         else:
-            self.classes_so_far = torch.cat(
+
+            self.register_buffer("classes_so_far", torch.cat(
                 (
                     self.classes_so_far,
                     labels.to(self.classes_so_far.device),
                 )
-            ).unique()
-
-            self.register_buffer("classes_so_far", self.classes_so_far)
+            ).unique())
 
         self.class_means = None
         if self.current_task > 0:

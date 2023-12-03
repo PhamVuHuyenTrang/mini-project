@@ -233,7 +233,7 @@ class ICarlLipschitz(RobustnessOptimizer):
         loss.backward()
 
         self.opt.step()
-        torch.cuda.empty_cache()
+
         return loss.item(), 0, 0, 0, 0
 
     @staticmethod

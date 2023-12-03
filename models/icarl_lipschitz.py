@@ -324,7 +324,7 @@ class ICarlLipschitz(RobustnessOptimizer):
 
     def begin_task(self, dataset):
         if self.current_task > 5:
-            return 
+            exit(0) 
         if self.current_task == 0:
             self.load_initial_checkpoint()
             self.reset_classifier()

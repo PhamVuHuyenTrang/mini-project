@@ -1,13 +1,10 @@
-
 from copy import deepcopy
 import torch
 import torch.nn.functional as F
 from functions.buffer import Buffer
 from functions.args import *
 from datasets import get_dataset
-from functions.lipschitz import RobustnessOptimizer, add_regularization_args
-from sklearn.cluster import KMeans
-import numpy as np
+from functions.lipschitz import LipOptimizer, add_lipschitz_args
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='ER-ACE with future not fixed (as made by authors)'
@@ -16,12 +13,12 @@ def get_parser() -> ArgumentParser:
     add_experiment_args(parser)
     add_rehearsal_args(parser)
     add_aux_dataset_args(parser)
-    add_regularization_args(parser)
+    add_lipschitz_args(parser)
 
     return parser
 
 
-class ErACELipschitz(RobustnessOptimizer):
+class ErACELipschitz(LipOptimizer):
     NAME = 'er_ace_lipschitz'
     COMPATIBILITY = ['class-il', 'domain-il', 'task-il', 'general-continual']
 
@@ -48,16 +45,6 @@ class ErACELipschitz(RobustnessOptimizer):
     def to(self, device):
         super().to(device)
         self.seen_so_far = self.seen_so_far.to(device)
-    
-    def max_pairwise_difference(array_list):
-        max_differences = []
-
-        for array in array_list:
-            max_difference = np.abs(array - array[:, None]).max()
-            max_differences.append(max_difference)
-
-        return max_differences
-    
 
     def observe(self, inputs: torch.Tensor, labels: torch.Tensor, not_aug_inputs: torch.Tensor, epoch=None):
         labels = labels.long()
@@ -78,48 +65,32 @@ class ErACELipschitz(RobustnessOptimizer):
         loss = self.loss(logits, labels)
 
         loss_re = torch.tensor(0.)
+        loss_lip_buffer = torch.tensor(0.)
+        loss_lip_budget = torch.tensor(0.)
+
         if self.task > 0:
             # sample from buffer
-            if self.task <= 5:
-
-                kmeans = KMeans(n_clusters=self.task + 1, random_state=0, n_init="auto").fit(self.buffer.examples)
-    
-            else:
-
-                kmeans = KMeans(n_clusters = 5, random_state = 0, n_init = "auto").fit(self.buffer.examples)
-
-            def ClusterIndicesNumpy(clustNum, labels_array): #numpy 
-                return np.where(labels_array == clustNum)[0]
-            
-            #def ClusterIndicesComp(clustNum, labels_array): #list comprehension
-            #return np.array([i for i, x in enumerate(labels_array) if x == clustNum])
-
-            mem_buffer_clustered = []
-            for i in range(self.task + 1):
-                mem_buffer_clustered.append(ClusterIndicesNumpy(i, kmeans.labels_))
-    
-            self.buffer = np.array(mem_buffer_clustered)
-
             buf_inputs, buf_labels = self.buffer.get_data(
                 self.setting.minibatch_size, transform=self.transform)
             loss_re = self.loss(self.net(buf_inputs), buf_labels)
 
         if not self.buffer.is_empty():
-            if self.args.linear_reg != 0:
+            if self.args.buffer_lip_lambda>0:
                 buf_inputs, _ = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform)
                 _, buf_output_features = self.net(buf_inputs, returnt='full')
-                for output_feature in buf_output_features:
-                    loss += self.max_pairwise_difference(output_feature)
 
+                lip_inputs = [buf_inputs] + buf_output_features[:-1]
+                loss_lip_buffer = self.buffer_lip_loss(lip_inputs)
+                loss += self.args.buffer_lip_lambda * loss_lip_buffer
             
-            if self.args.budget_lip_lambda != 0:
+            if self.args.budget_lip_lambda>0:
                 buf_inputs, _ = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform)
                 _, buf_output_features = self.net(buf_inputs, returnt='full')
-                         
-                if self.args.linear_reg != 0:
-                    for single_loss_re in loss_re:
-                        loss += self.max_pairwise_difference(single_loss_re)
-            
+
+                lip_inputs = [buf_inputs] + buf_output_features[:-1]
+
+                loss_lip_budget = self.budget_lip_loss(lip_inputs) 
+                loss += self.args.budget_lip_lambda * loss_lip_budget
 
         loss += loss_re
 

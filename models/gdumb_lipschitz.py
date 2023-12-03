@@ -6,7 +6,7 @@ from functions.buffer import Buffer
 import torch
 import numpy as np
 from functions.distributed import make_dp
-from functions.lipschitz import RobustnessOptimizer, add_regularization_args
+from functions.lipschitz import LipOptimizer, add_lipschitz_args
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='GDumb learns an empty model only on the buffer.'
@@ -28,7 +28,8 @@ def get_parser() -> ArgumentParser:
 
     add_experiment_args(parser)
     add_aux_dataset_args(parser)
-    add_regularization_args(parser)
+    add_lipschitz_args(parser)
+
     return parser
 
 def rand_bbox(size, lam):
@@ -77,7 +78,7 @@ def get_batch_indexes(N, batch_size):
     for i in range(0, N*batch_size, batch_size):
         yield idxs[i:i + batch_size]
 
-class GDumbLipschitz(RobustnessOptimizer):
+class GDumbLipschitz(LipOptimizer):
     NAME = 'gdumb_lipschitz'
     COMPATIBILITY = ['class-il', 'domain-il', 'task-il', 'general-continual']
 
@@ -87,15 +88,6 @@ class GDumbLipschitz(RobustnessOptimizer):
 
         self.task = 0
         self.net.set_return_prerelu(True)
-
-    def max_pairwise_difference(array_list):
-        max_differences = []
-
-        for array in array_list:
-            max_difference = np.abs(array - array[:, None]).max()
-            max_differences.append(max_difference)
-
-        return max_differences
 
     def observe(self, inputs: torch.Tensor, labels: torch.Tensor, not_aug_inputs: torch.Tensor, epoch=None):
         labels=labels.long()
@@ -143,20 +135,27 @@ class GDumbLipschitz(RobustnessOptimizer):
                     buf_outputs = self.net(buf_inputs)
                     loss = self.loss(buf_outputs, buf_labels)
 
+                loss_lip_buffer = torch.tensor(0.)
+                loss_lip_budget = torch.tensor(0.)
+
                 if not self.buffer.is_empty():
-                    if self.args.linear_reg != 0:
+                    if self.args.buffer_lip_lambda>0:
                         buf_inputs, _ = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform)
                         _, buf_output_features = self.net(buf_inputs, returnt='full')
-                        for output_feature in buf_output_features:
-                            loss += self.max_pairwise_difference(output_feature)
 
+                        lip_inputs = [buf_inputs] + buf_output_features[:-1]
+
+                        loss_lip_buffer = self.buffer_lip_loss(lip_inputs)
+                        loss += self.args.buffer_lip_lambda * loss_lip_buffer
                     
-                    if self.args.budget_lip_lambda != 0:
+                    if self.args.budget_lip_lambda>0:
                         buf_inputs, _ = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform)
                         _, buf_output_features = self.net(buf_inputs, returnt='full')
 
-                        for single_loss in loss:
-                            loss += self.max_pairwise_difference(single_loss)
+                        lip_inputs = [buf_inputs] + buf_output_features[:-1]
+
+                        loss_lip_budget = self.budget_lip_loss(lip_inputs) 
+                        loss += self.args.budget_lip_lambda * loss_lip_budget
 
                 loss.backward()
                 optimizer.step()
@@ -183,4 +182,3 @@ class GDumbLipschitz(RobustnessOptimizer):
         self.net.set_return_prerelu(True)
 
         self.init_net(dataset)
-

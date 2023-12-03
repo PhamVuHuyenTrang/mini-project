@@ -3,10 +3,9 @@ from functions.buffer import Buffer
 from torch.nn import functional as F
 from functions.args import *
 import torch
-import numpy as np
 
-from functions.lipschitz import RobustnessOptimizer, add_regularization_args
-from sklearn.cluster import KMeans
+from functions.lipschitz import LipOptimizer, add_lipschitz_args
+
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Continual learning via'
                                         ' Dark Experience Replay++.'
@@ -15,7 +14,7 @@ def get_parser() -> ArgumentParser:
     add_experiment_args(parser)
     add_rehearsal_args(parser)
     add_aux_dataset_args(parser)
-    add_regularization_args(parser)
+    add_lipschitz_args(parser)
 
     parser.add_argument('--alpha', type=float, required=True,
                         help='Penalty weight.')
@@ -24,7 +23,7 @@ def get_parser() -> ArgumentParser:
 
     return parser
 
-class DerppLipschitz(RobustnessOptimizer):
+class DerppLipschitz(LipOptimizer):
     NAME = 'derpp_lipschitz'
     COMPATIBILITY = ['class-il', 'domain-il', 'task-il', 'general-continual']
 
@@ -55,14 +54,6 @@ class DerppLipschitz(RobustnessOptimizer):
 
     def end_task(self, dataset):
         self.current_task += 1
-    def max_pairwise_difference(array_list):
-        max_differences = []
-
-        for array in array_list:
-            max_difference = np.abs(array - array[:, None]).max()
-            max_differences.append(max_difference)
-
-        return max_differences
 
     def observe(self, inputs: torch.Tensor, labels: torch.Tensor, not_aug_inputs: torch.Tensor, epoch=None):
         labels = labels.long()
@@ -73,50 +64,31 @@ class DerppLipschitz(RobustnessOptimizer):
         loss = self.loss(outputs, labels)
 
         if not self.buffer.is_empty():
-            if self.current_task <= 5:
-
-                kmeans = KMeans(n_clusters=self.current_task + 1, random_state=0, n_init="auto").fit(self.buffer.examples)
-    
-            else:
-
-                kmeans = KMeans(n_clusters = 5, random_state = 0, n_init = "auto").fit(self.buffer.examples)
-
-            def ClusterIndicesNumpy(clustNum, labels_array): #numpy 
-                return np.where(labels_array == clustNum)[0]
-
-            #def ClusterIndicesComp(clustNum, labels_array): #list comprehension
-                #return np.array([i for i, x in enumerate(labels_array) if x == clustNum])
-
-            mem_buffer_clustered = []
-            for i in range(self.current_task + 1):
-                mem_buffer_clustered.append(ClusterIndicesNumpy(i, kmeans.labels_))
-    
-            self.buffer = np.array(mem_buffer_clustered)
             buf_inputs, _, buf_logits = self.buffer.get_data(
                 self.setting.minibatch_size, transform=self.transform)
             buf_outputs, buf_output_features = self.net(buf_inputs, returnt='full')
-            loss_1 = self.args.alpha * F.mse_loss(buf_outputs, buf_logits)
-            loss += loss_1
+            loss += self.args.alpha * F.mse_loss(buf_outputs, buf_logits)
 
             buf_inputs, buf_labels, _ = self.buffer.get_data(
                 self.setting.minibatch_size, transform=self.transform)
             buf_outputs = self.net(buf_inputs).float()
-            loss_2 = self.args.beta * self.loss(buf_outputs, buf_labels)
-            loss += loss_2
+            loss += self.args.beta * self.loss(buf_outputs, buf_labels)
         
-            if self.args.linear_reg != 0:
+            if self.args.buffer_lip_lambda>0:
                 buf_inputs, _, _ = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform)
                 _, buf_output_features = self.net(buf_inputs, returnt='full')
 
-                for output_feature in buf_output_features:
-                    loss += self.max_pairwise_difference(output_feature)
+                lip_inputs = [buf_inputs] + buf_output_features[:-1]
+
+                loss += self.args.buffer_lip_lambda * self.buffer_lip_loss(lip_inputs)
             
-            if self.args.loss_reg != 0:
+            if self.args.budget_lip_lambda>0:
                 buf_inputs, _, _ = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform)
                 _, buf_output_features = self.net(buf_inputs, returnt='full')
 
-                for single_loss in loss:
-                    loss += self.max_pairwise_difference(single_loss)
+                lip_inputs = [buf_inputs] + buf_output_features[:-1]
+
+                loss += self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs) 
 
         loss.backward()
         self.opt.step()

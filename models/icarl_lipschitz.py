@@ -1,22 +1,17 @@
-
 from copy import deepcopy
 
-from functions.augmentations import normalize
+from utils.augmentations import normalize
 import torch
 import torch.nn.functional as F
-from torchvision import transforms
 from datasets import get_dataset
-from functions.buffer import Buffer
-from functions.args import *
+from utils.buffer import Buffer
+from utils.args import *
 from models.utils.continual_model import ContinualModel
-from functions.distributed import make_dp
-from functions.lipschitz import RobustnessOptimizer, add_regularization_args
-from functions.create_partition import create_partition_func_1nn
-from functions.no_bn import bn_track_stats
+from utils.distributed import make_dp
+from utils.lipschitz import LipOptimizer, add_lipschitz_args
+from utils.no_bn import bn_track_stats
 import numpy as np
-from functions.augmentations import rotate_30_degrees, rotate_60_degrees, add_noise, change_colors
 
-partition_func = create_partition_func_1nn((84, 84, 3), n_centroids=5000)
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Continual Learning via iCaRL.'
@@ -26,7 +21,7 @@ def get_parser() -> ArgumentParser:
     add_experiment_args(parser)
     add_rehearsal_args(parser)
     add_aux_dataset_args(parser)
-    add_regularization_args(parser)
+    add_lipschitz_args(parser)
 
     parser.add_argument('--wd_reg', type=float, required=True,
                         help='L2 regularization applied to the parameters.')
@@ -48,17 +43,16 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
 
     if t_idx > 0:
         # 1) First, subsample prior classes
-        buf_x, buf_y, buf_l, buf_clusterID = self.buffer.get_all_data()
+        buf_x, buf_y, buf_l = self.buffer.get_all_data()
 
         mem_buffer.empty()
         for _y in buf_y.unique():
             idx = (buf_y == _y)
-            _y_x, _y_y, _y_l, _y_clusterID = buf_x[idx], buf_y[idx], buf_l[idx],buf_clusterID[idx]
+            _y_x, _y_y, _y_l = buf_x[idx], buf_y[idx], buf_l[idx]
             mem_buffer.add_data(
                 examples=_y_x[:samples_per_class],
                 labels=_y_y[:samples_per_class],
-                logits=_y_l[:samples_per_class],
-                clusterID = _y_clusterID[:samples_per_class]
+                logits=_y_l[:samples_per_class]
             )
 
     # 2) Then, fill with current tasks
@@ -117,9 +111,7 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
             mem_buffer.add_data(
                 examples=_x[idx_min:idx_min + 1].to(self.device),
                 labels=_y[idx_min:idx_min + 1].to(self.device),
-                logits=_l[idx_min:idx_min + 1].to(self.device),
-                clusterID=partition_func(_x[idx_min:idx_min + 1]).to(self.device)
-
+                logits=_l[idx_min:idx_min + 1].to(self.device)
             )
 
             running_sum += feats[idx_min:idx_min + 1]
@@ -128,10 +120,11 @@ def icarl_fill_buffer(self: ContinualModel, mem_buffer: Buffer, dataset, t_idx: 
 
     assert len(mem_buffer.examples) <= mem_buffer.buffer_size
     assert mem_buffer.num_seen_examples <= mem_buffer.buffer_size
+
     self.net.train(mode)
 
 
-class ICarlLipschitz(RobustnessOptimizer):
+class ICarlLipschitz(LipOptimizer):
     NAME = 'icarl_lipschitz'
     COMPATIBILITY = ['class-il', 'task-il']
 
@@ -171,25 +164,33 @@ class ICarlLipschitz(RobustnessOptimizer):
         return -pred
 
     def observe(self, inputs: torch.Tensor, labels: torch.Tensor, not_aug_inputs: torch.Tensor, logits=None, epoch=None):
-        if not hasattr(self, 'classes_so_far_buffer'):
-            self.classes_so_far_buffer = labels.unique().to(labels.device)
-            self.register_buffer('classes_so_far', self.classes_so_far_buffer)
+        if not hasattr(self, 'classes_so_far'):
+            self.register_buffer('classes_so_far', labels.unique().to(self.classes_so_far.device))
         else:
-            self.classes_so_far_buffer = torch.cat((self.classes_so_far_buffer, labels.to(self.classes_so_far_buffer.device))).unique()
-
-            self.register_buffer('classes_so_far', self.classes_so_far_buffer)
+            self.register_buffer('classes_so_far', torch.cat((
+                self.classes_so_far, labels.to(self.classes_so_far.device))).unique())
 
         self.class_means = None
         if self.current_task > 0:
             with torch.no_grad():
                 logits = torch.sigmoid(self.icarl_old_net(inputs))
         self.opt.zero_grad()
-        loss, _ = self.get_loss(inputs, labels, self.current_task, logits)
+        loss, output_features = self.get_loss(inputs, labels, self.current_task, logits)
+        
+        # Lipschitz losses
+        if not self.buffer.is_empty():
+            lip_inputs = [inputs] + output_features[:-1]
+
+            if self.args.buffer_lip_lambda>0:
+                loss += self.args.buffer_lip_lambda * self.buffer_lip_loss(lip_inputs)
+            
+            if self.args.budget_lip_lambda>0:
+                loss += self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs) 
 
         loss.backward()
 
         self.opt.step()
-        torch.cuda.empty_cache()
+
         return loss.item(), 0, 0, 0, 0
 
     @staticmethod
@@ -215,47 +216,19 @@ class ICarlLipschitz(RobustnessOptimizer):
         if task_idx == 0:
             # Compute loss on the current task
             targets = self.eye[labels][:, :ac]
-            loss_ce = F.binary_cross_entropy_with_logits(outputs, targets)
-            assert loss_ce >= 0
+            loss = F.binary_cross_entropy_with_logits(outputs, targets)
+            assert loss >= 0
         else:
             targets = self.eye[labels][:, pc:ac]
             comb_targets = torch.cat((logits[:, :pc], targets), dim=1)
-            loss_ce = F.binary_cross_entropy_with_logits(outputs, comb_targets)
-            assert loss_ce >= 0
+            loss = F.binary_cross_entropy_with_logits(outputs, comb_targets)
+            assert loss >= 0
 
         if self.args.wd_reg:
             try:
-                loss_wd = self.args.wd_reg * torch.sum(self.net.get_params() ** 2)
+                loss += self.args.wd_reg * torch.sum(self.net.get_params() ** 2)
             except: # distributed 
-                loss_wd = self.args.wd_reg * torch.sum(self.net.module.get_params() ** 2)
-        else:
-            loss_wd = 0
-
-        # Robustness losses (New regularization)
-        unique_labels = torch.unique(labels)
-        num_classes_so_far = unique_labels.numel()
-
-        loss_lr = torch.zeros_like(loss_ce)
-
-        if not self.buffer.is_empty():
-            choice, buffer_x, buffer_y, buffer_logits, buffer_cluster_ids = self.buffer.get_data(self.setting.minibatch_size, transform=self.transform, return_index=True)
-            
-            augment_examples, augmented_labels, _, augmented_cluster_ids = self.buffer.get_augment_data(choice)
-
-            augmented_logits = torch.sigmoid(self.net(augment_examples))
-            buffer_losses_tensor = F.cross_entropy(buffer_logits, buffer_y.long(), reduction='none')
-            augmented_losses_tensor = F.cross_entropy(augmented_logits, augmented_labels.long(), reduction='none')
-
-            for cluster_id in buffer_cluster_ids.unique():
-                buffer_mask = (buffer_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
-                augmented_mask = (augmented_cluster_ids == cluster_id).nonzero(as_tuple=True)[0]
-
-                if len(buffer_mask) > 0 and len(augmented_mask) > 0:
-                    diff = torch.abs(buffer_losses_tensor[buffer_mask].unsqueeze(1) - augmented_losses_tensor[augmented_mask].unsqueeze(0))
-                    loss_lr += 0.02 * diff.max()
-
-        # print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_lr: {loss_lr}')
-        loss = loss_ce + loss_wd + loss_lr
+                loss += self.args.wd_reg * torch.sum(self.net.module.get_params() ** 2)
 
         return loss, output_features
 
@@ -296,8 +269,6 @@ class ICarlLipschitz(RobustnessOptimizer):
         self.net.train()
         with torch.no_grad():
             icarl_fill_buffer(self, self.buffer, dataset, self.current_task)
-            mean, std = self.dataset.get_denormalization_transform().mean, self.dataset.get_denormalization_transform().std
-            self.buffer.generate_augment_data(mean, std, partition_func)
         self.current_task += 1
         self.class_means = None
 
@@ -308,17 +279,13 @@ class ICarlLipschitz(RobustnessOptimizer):
         # This function caches class means
         transform = self.dataset.get_normalization_transform()
         class_means = []
-        examples, labels, _, _ = self.buffer.get_all_data(transform)
+        examples, labels, _ = self.buffer.get_all_data(transform)
         for _y in self.classes_so_far:
-            x_buf_list = [examples[i] for i in range(0, len(examples)) if labels[i].cpu() == _y]
-
-            if x_buf_list:
-                x_buf = torch.stack(x_buf_list, dim=0).to(self.device)
-                with bn_track_stats(self, False):
-                    class_means.append(self.net(x_buf, returnt='features').mean(0).flatten())
-            else:
-                x_buf_list_dummy = [examples[0]]
-                x_buf_dummy = torch.stack(x_buf_list_dummy, dim=0).to(self.device)
-
-                class_means.append(torch.zeros_like(self.net(x_buf_dummy, returnt='features').mean(0).flatten()))
+            x_buf = torch.stack(
+                [examples[i]
+                 for i in range(0, len(examples))
+                 if labels[i].cpu() == _y]
+            ).to(self.device)
+            with bn_track_stats(self, False):
+                class_means.append(self.net(x_buf, returnt='features').mean(0).flatten())
         self.class_means = torch.stack(class_means)

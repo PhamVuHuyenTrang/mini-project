@@ -1,15 +1,15 @@
 from copy import deepcopy
 
-from utils.augmentations import normalize
+from functions.augmentations import normalize
 import torch
 import torch.nn.functional as F
 from datasets import get_dataset
-from utils.buffer import Buffer
-from utils.args import *
+from functions.buffer import Buffer
+from functions.args import *
 from models.utils.continual_model import ContinualModel
-from utils.distributed import make_dp
-from utils.lipschitz import LipOptimizer, add_lipschitz_args
-from utils.no_bn import bn_track_stats
+from functions.distributed import make_dp
+from functions.lipschitz import LipOptimizer, add_lipschitz_args
+from functions.no_bn import bn_track_stats
 import numpy as np
 
 

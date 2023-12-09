@@ -259,6 +259,8 @@ class ICarlLipschitz(RobustnessOptimizer):
         ac = (task_idx + 1) * self.dataset.N_CLASSES_PER_TASK
 
         outputs, output_features = self.net(inputs, returnt="full")
+        #print("input___", inputs)
+        #print("outputs", outputs)
         outputs = outputs[:, :ac]
 
         if task_idx == 0:
@@ -269,7 +271,12 @@ class ICarlLipschitz(RobustnessOptimizer):
         else:
             targets = self.eye[labels][:, pc:ac]
             comb_targets = torch.cat((logits[:, :pc], targets), dim=1)
+            #print("logits", logits[:, :pc])
+            #print("targets", targets)
             loss_ce = F.binary_cross_entropy_with_logits(outputs, comb_targets)
+            #print("comb_targets" ,comb_targets)
+            #print("outputs", outputs)
+            #print("loss_ce", loss_ce)
             assert loss_ce >= 0
 
         if self.args.wd_reg:
@@ -309,22 +316,28 @@ class ICarlLipschitz(RobustnessOptimizer):
             augment_output, augment_features = self.net(
                 augment_examples, returnt="full"
             )
+            #print("augment_examples", augment_examples)
+            #print("augment_output", augment_output)
             buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
-            reg = len(augment_features) * 4 * (self.buffer.buffer_size ** 2)
+            #print("buffer_output", buffer_output)
+            reg = 1/(len(augment_features) * 4 * (self.buffer.buffer_size ** 2))
             for af, bf in zip(augment_features, buffer_feature):
+                #print("bf.shape[0]", bf.shape[0])
                 bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))
-            
-                distance = torch.sqrt(((bf - af) ** 2).sum())
-                loss_lr += reg * distance
+                if len(bf.shape) == 2:
+                    distance = torch.sqrt(((bf - af) ** 2).sum(dim = (1,)))
+                else:
+                    distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
+                loss_lr += reg * distance.sum()
+                #print("loss_lr", loss_lr)
 
         # print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_lr: {loss_lr}')
         loss = loss_ce + loss_wd + loss_lr
-
         return loss, output_features
 
     def begin_task(self, dataset):
-        if self.current_task > 5:
-            return 
+        if self.current_task > 1:
+            exit() 
         if self.current_task == 0:
             self.load_initial_checkpoint()
             self.reset_classifier()

@@ -320,7 +320,8 @@ class ICarlLipschitz(RobustnessOptimizer):
             #print("augment_output", augment_output)
             buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
             #print("buffer_output", buffer_output)
-            reg = 1/(len(augment_features) * 4 * (self.buffer.buffer_size ** 2))
+            reg = 0.1
+            mean = 1/(len(augment_features) * 4 * (self.buffer.buffer_size ** 2))
             for af, bf in zip(augment_features, buffer_feature):
                 #print("bf.shape[0]", bf.shape[0])
                 bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))
@@ -328,7 +329,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                     distance = torch.sqrt(((bf - af) ** 2).sum(dim = (1,)))
                 else:
                     distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
-                loss_lr += reg * distance.sum()
+                loss_lr += reg * mean * distance.sum()
                 #print("loss_lr", loss_lr)
 
         # print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_lr: {loss_lr}')

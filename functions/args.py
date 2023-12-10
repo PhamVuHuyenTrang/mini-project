@@ -24,7 +24,9 @@ def add_experiment_args(parser: ArgumentParser) -> None:
                         help='optimizer momentum.')
     parser.add_argument('--optim_nesterov', type=int, default=0,
                         help='optimizer nesterov momentum.')
-
+                       
+    parser.add_argument('--method', type=str, default = 'lider',
+                        help='Method name.')
 def add_management_args(parser: ArgumentParser) -> None:
     parser.add_argument('--job_number', type=int, default=None,
                         help='The job ID in Slurm.')

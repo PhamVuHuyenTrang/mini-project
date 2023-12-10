@@ -294,7 +294,7 @@ class ICarlLipschitz(RobustnessOptimizer):
         num_classes_so_far = unique_labels.numel()
 
         loss_lr = torch.zeros_like(loss_ce)
-        loss = torch.zeros_like(loss_ce)
+        loss = loss_ce
 
         if not self.buffer.is_empty():
             print("NOt empty")
@@ -302,10 +302,10 @@ class ICarlLipschitz(RobustnessOptimizer):
                 lip_inputs = [inputs] + output_features[:-1]
 
                 if self.args.buffer_lip_lambda>0:
-                    loss = loss_ce + self.args.buffer_lip_lambda * self.buffer_lip_loss(lip_inputs)
+                    loss = loss_ce + loss_wd + self.args.buffer_lip_lambda * self.buffer_lip_loss(lip_inputs)
             
                 if self.args.budget_lip_lambda>0:
-                    loss = loss_ce + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
+                    loss = loss_ce + loss_wd + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
             
             elif self.args.methods == 'localrobustness':
 

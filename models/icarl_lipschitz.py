@@ -294,6 +294,7 @@ class ICarlLipschitz(RobustnessOptimizer):
         num_classes_so_far = unique_labels.numel()
 
         loss_lr = torch.zeros_like(loss_ce)
+        loss = torch.zeros_like(loss_ce)
 
         if not self.buffer.is_empty():
             print("NOt empty")

@@ -307,7 +307,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                 if self.args.budget_lip_lambda>0:
                     loss = loss_ce + loss_wd + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
             
-            elif self.args.methods == 'localrobustness':
+            elif self.args.method == 'localrobustness':
 
                 (
                     choice,

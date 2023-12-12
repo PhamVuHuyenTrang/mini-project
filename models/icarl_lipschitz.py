@@ -331,7 +331,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                     distance = torch.sqrt(((bf - af) ** 2).sum(dim = (1,)))
                 else:
                     distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
-                reg = reg * (2. ** i)
+                reg = reg * (2. * i)
                 loss_lr += reg * mean * distance.sum()
                 # print("loss_lr", loss_lr)
 

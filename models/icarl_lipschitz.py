@@ -293,11 +293,9 @@ class ICarlLipschitz(RobustnessOptimizer):
         unique_labels = torch.unique(labels)
         num_classes_so_far = unique_labels.numel()
 
-        loss_lr = torch.zeros_like(loss_ce)
-        loss = torch.zeros_like(loss_ce)
+        loss_lr = torch.zeros_like(loss_ce).to(self.device)
 
         if not self.buffer.is_empty():
-            print("NOt empty")
             if self.args.method == 'lider':
                 lip_inputs = [inputs] + output_features[:-1]
 
@@ -308,7 +306,6 @@ class ICarlLipschitz(RobustnessOptimizer):
                     loss = loss_ce + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
             
             elif self.args.methods == 'localrobustness':
-
                 (
                     choice,
                     buffer_x,
@@ -346,11 +343,11 @@ class ICarlLipschitz(RobustnessOptimizer):
                     #print("loss_lr", loss_lr)
 
                 # print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_lr: {loss_lr}')
-                loss = loss_ce + loss_wd + loss_lr
+        loss = loss_ce + loss_wd + loss_lr
         return loss, output_features
 
     def begin_task(self, dataset):
-        if self.current_task > 1:
+        if self.current_task > 4:
             exit() 
         if self.current_task == 0:
             self.load_initial_checkpoint()

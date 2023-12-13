@@ -271,7 +271,7 @@ def train(model: ContinualModel, dataset: ContinualDataset,
         if not 'MAMMOTH_SLAVE' in os.environ and (args.model != 'joint' or t == dataset.N_TASKS - 1):
             accs = evaluate(model, dataset,
                             verbose=not model.args.non_verbose)
-            print(accs)
+            print("Accuracy over tasks", accs)
 
             results.append(accs[0])
             results_mask_classes.append(accs[1])

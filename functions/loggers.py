@@ -25,12 +25,12 @@ def print_mean_accuracy(mean_acc: np.ndarray, task_number: int,
     if setting == 'domain-il':
         mean_acc, _ = mean_acc
         print('\nAccuracy for {} task(s): {} %'.format(
-            task_number, round(mean_acc, 2)), file=sys.stderr)
+            task_number, round(mean_acc, 2)))
     else:
         mean_acc_class_il, mean_acc_task_il = mean_acc
         print('\nAccuracy for {} task(s): \t [Class-IL]: {} %'
               ' \t [Task-IL]: {} %\n'.format(task_number, round(
-            mean_acc_class_il, 2), round(mean_acc_task_il, 2)), file=sys.stderr)
+            mean_acc_class_il, 2), round(mean_acc_task_il, 2)))
 
 class ExampleLogger:
     def __init__(self, setting_str, dataset_str, model_str, batch_size):

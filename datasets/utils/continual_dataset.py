@@ -119,7 +119,7 @@ def store_masked_loaders(train_dataset: datasets, test_dataset: datasets,
 
     if 'MAMMOTH_RANK' not in os.environ:
         train_loader = DataLoader(train_dataset,
-                                batch_size=dset_setting.batch_size, shuffle=True, num_workers=0 if socket.gethostname() == 'jojo' else 4, drop_last=True)
+                                batch_size=dset_setting.batch_size, shuffle=False, num_workers=0 if socket.gethostname() == 'jojo' else 4, drop_last=True)
     else:
         train_loader = DataLoader(train_dataset,
                                 batch_size=dset_setting.batch_size, num_workers=4, drop_last=True, sampler=torch.utils.data.DistributedSampler(train_dataset, shuffle=True))
@@ -152,4 +152,4 @@ def get_previous_train_loader(train_dataset: datasets, batch_size: int,
     train_dataset.data = train_dataset.data[train_mask]
     train_dataset.targets = np.array(train_dataset.targets)[train_mask]
 
-    return DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    return DataLoader(train_dataset, batch_size=batch_size, shuffle=False, drop_last=True)

@@ -334,7 +334,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                 buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
                 #print("buffer_output", buffer_output)
                 reg = 0.01
-                mean = 1/(len(augment_features) * 4 * (self.buffer.buffer_size ** 2))
+                mean = 1/(len(augment_features) * 10 * (self.buffer.buffer_size ** 2))
                 for af, bf in zip(augment_features, buffer_feature):
                     #print("bf.shape[0]", bf.shape[0])
                     bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))

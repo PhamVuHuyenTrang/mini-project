@@ -136,7 +136,7 @@ class SequentialMiniImagenet(ContinualDataset):
             "minibatch_size":32,
             "scheduler":"simple",
             "scheduler_rate":0.2,
-            "n_epochs":40,
+            "n_epochs":80,
             "pre_epochs":0,
             "opt_steps":[10, 20, 35]})
             

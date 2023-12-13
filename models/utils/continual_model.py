@@ -58,7 +58,7 @@ class ContinualModel(nn.Module):
 
         if self.args.datasetS != 'imagenet':
             self.aux_dl = torch.utils.data.DataLoader(
-                aux_dset, batch_size=self.setting.batch_size, shuffle=True, num_workers=0, drop_last=True)
+                aux_dset, batch_size=self.setting.batch_size, shuffle=False, num_workers=0, drop_last=True)
             self.aux_iter = iter(self.aux_dl)
 
         else:

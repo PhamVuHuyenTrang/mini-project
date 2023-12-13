@@ -294,46 +294,59 @@ class ICarlLipschitz(RobustnessOptimizer):
         num_classes_so_far = unique_labels.numel()
 
         loss_lr = torch.zeros_like(loss_ce)
+        loss = torch.zeros_like(loss_ce)
 
         if not self.buffer.is_empty():
-            (
-                choice,
-                buffer_x,
-                buffer_y,
-                buffer_logits,
-                buffer_cluster_ids,
-            ) = self.buffer.get_data(
-                self.setting.minibatch_size, transform=self.transform, return_index=True
-            )
+            print("NOt empty")
+            if self.args.method == 'lider':
+                lip_inputs = [inputs] + output_features[:-1]
 
-            (
-                augment_examples,
-                augmented_labels,
-                _,
-                augmented_cluster_ids,
-            ) = self.buffer.get_augment_data(choice)
+                if self.args.buffer_lip_lambda>0:
+                    loss = loss_ce + self.args.buffer_lip_lambda * self.buffer_lip_loss(lip_inputs)
+            
+                if self.args.budget_lip_lambda>0:
+                    loss = loss_ce + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
+            
+            elif self.args.methods == 'localrobustness':
 
-            augment_output, augment_features = self.net(
-                augment_examples, returnt="full"
-            )
-            #print("augment_examples", augment_examples)
-            #print("augment_output", augment_output)
-            buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
-            #print("buffer_output", buffer_output)
-            reg = 0.01
-            mean = 1/(len(augment_features) * 10 * (self.buffer.buffer_size ** 2))
-            for af, bf in zip(augment_features, buffer_feature):
-                #print("bf.shape[0]", bf.shape[0])
-                bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))
-                if len(bf.shape) == 2:
-                    distance = torch.sqrt(((bf - af) ** 2).sum(dim = (1,)))
-                else:
-                    distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
-                loss_lr += reg * mean * distance.sum()
-                #print("loss_lr", loss_lr)
+                (
+                    choice,
+                    buffer_x,
+                    buffer_y,
+                    buffer_logits,
+                    buffer_cluster_ids,
+                ) = self.buffer.get_data(
+                    self.setting.minibatch_size, transform=self.transform, return_index=True
+                )
 
-        # print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_lr: {loss_lr}')
-        loss = loss_ce + loss_wd + loss_lr
+                (
+                    augment_examples,
+                    augmented_labels,
+                    _,
+                    augmented_cluster_ids,
+                ) = self.buffer.get_augment_data(choice)
+
+                augment_output, augment_features = self.net(
+                    augment_examples, returnt="full"
+                )
+                #print("augment_examples", augment_examples)
+                #print("augment_output", augment_output)
+                buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
+                #print("buffer_output", buffer_output)
+                reg = 0.01
+                mean = 1/(len(augment_features) * 4 * (self.buffer.buffer_size ** 2))
+                for af, bf in zip(augment_features, buffer_feature):
+                    #print("bf.shape[0]", bf.shape[0])
+                    bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))
+                    if len(bf.shape) == 2:
+                        distance = torch.sqrt(((bf - af) ** 2).sum(dim = (1,)))
+                    else:
+                        distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
+                    loss_lr += reg * mean * distance.sum()
+                    #print("loss_lr", loss_lr)
+
+                # print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_lr: {loss_lr}')
+                loss = loss_ce + loss_wd + loss_lr
         return loss, output_features
 
     def begin_task(self, dataset):

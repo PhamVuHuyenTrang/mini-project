@@ -254,6 +254,12 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             model_stash['epoch_idx'] = epoch + 1
             model_stash['batch_idx'] = 0
 
+            accs = evaluate(model, dataset,
+                            verbose=not model.args.non_verbose)
+
+            mean_acc = np.mean(accs, axis=1)
+            print_mean_accuracy(mean_acc, t + 1, dataset.SETTING)
+
             wait_for_master()
 
             if scheduler is not None:

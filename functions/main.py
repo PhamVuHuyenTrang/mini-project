@@ -89,4 +89,6 @@ def main(args=None):
     train(model, dataset, args)
 
 if __name__ == '__main__':
+    torch.manual_seed(0)
+    np.random.seed(0)
     main()

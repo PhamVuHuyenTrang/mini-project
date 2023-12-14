@@ -26,8 +26,6 @@ def add_experiment_args(parser: ArgumentParser) -> None:
                         help='optimizer nesterov momentum.')
     parser.add_argument('--method', type=str, default = 'lider',
                         help='Method name.')
-    parser.add_argument('--n_tasks', type=int, default=20,
-                        help='number of tasks')
 
 def add_management_args(parser: ArgumentParser) -> None:
     parser.add_argument('--job_number', type=int, default=None,

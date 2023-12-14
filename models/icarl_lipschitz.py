@@ -347,7 +347,7 @@ class ICarlLipschitz(RobustnessOptimizer):
         return loss, output_features
 
     def begin_task(self, dataset):
-        if self.current_task > self.args.n_tasks:
+        if self.current_task > 0:
             exit() 
         if self.current_task == 0:
             self.load_initial_checkpoint()

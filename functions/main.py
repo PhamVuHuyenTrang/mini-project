@@ -2,6 +2,7 @@ import numpy as np
 import importlib
 import os
 import sys
+import datetime
 import socket
 conf_path = os.getcwd()
 sys.path.append(conf_path)
@@ -42,6 +43,7 @@ def parse_args():
     args = parser.parse_args()
 
     if args.seed is not None:
+        print('seeded')
         set_random_seed(args.seed)
 
     if args.model == 'mer': setattr(args, 'batch_size', 1)
@@ -88,4 +90,8 @@ def main(args=None):
     train(model, dataset, args)
 
 if __name__ == '__main__':
+    # sys.stdout = open('output.txt','a', errors='ignore')
+    # sys.stderr = open('output.txt','a', errors='ignore')
+    # os.environ["CUBLAS_WORKSPACE_CONFIG"]=":4096:8"
+    # torch.use_deterministic_algorithms(True)
     main()

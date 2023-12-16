@@ -293,19 +293,15 @@ class ICarlLipschitz(RobustnessOptimizer):
         unique_labels = torch.unique(labels)
         num_classes_so_far = unique_labels.numel()
 
-        loss_lr = torch.zeros_like(loss_ce).to(self.device)
+        loss_reg = torch.zeros_like(loss_ce).to(self.device)
 
         if not self.buffer.is_empty():
             if self.args.method == 'lider':
                 lip_inputs = [inputs] + output_features[:-1]
+                
+                loss_reg = self.args.buffer_lip_lambda * self.buffer_lip_loss(lip_inputs) + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
 
-                if self.args.buffer_lip_lambda>0:
-                    loss = loss_ce + self.args.buffer_lip_lambda * self.buffer_lip_loss(lip_inputs)
-            
-                if self.args.budget_lip_lambda>0:
-                    loss = loss_ce + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
-            
-            elif self.args.methods == 'localrobustness':
+            elif self.args.method == 'localrobustness':
                 (
                     choice,
                     buffer_x,
@@ -339,16 +335,14 @@ class ICarlLipschitz(RobustnessOptimizer):
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim = (1,)))
                     else:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
-                    loss_lr += reg * mean * distance.sum()
-                    #print("loss_lr", loss_lr)
+                    loss_reg += reg * mean * distance.sum()
+                    #print("loss_reg", loss_reg)
 
-                # print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_lr: {loss_lr}')
-        loss = loss_ce + loss_wd + loss_lr
+        print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_reg: {loss_reg}')
+        loss = loss_ce + loss_wd + loss_reg
         return loss, output_features
 
     def begin_task(self, dataset):
-        if self.current_task > 0:
-            exit() 
         if self.current_task == 0:
             self.load_initial_checkpoint()
             self.reset_classifier()

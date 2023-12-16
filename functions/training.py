@@ -287,10 +287,13 @@ def train(model: ContinualModel, dataset: ContinualDataset,
             if args.tensorboard:
                 tb_logger.log_accuracy(np.array(accs), mean_acc, args, t)
             
+            print('logged')
+            
             if not os.path.isdir('checkpoints'):
                 create_if_not_exists("checkpoints")
             now = datetime.now()
             if args.savecheck:
+                print('save checkpoint')
                 torch.save(model.state_dict(), 'checkpoints/%s_%s_%d_%d_%s.pt' % (model.NAME, dataset.NAME,
                            model.args.buffer_size if 'buffer_size' in model.args else 0, t, str(now)))
                 if 'buffer_size' in model.args:
@@ -302,6 +305,8 @@ def train(model: ContinualModel, dataset: ContinualDataset,
                 with open('checkpoints/%s_%s_results_%d_%d_%s.pkl' % (model.NAME, dataset.NAME, model.args.buffer_size if 'buffer_size' in model.args else 0, t, str(now)), 'wb') as f:
                     pickle.dump(
                         obj=[results, results_mask_classes, logger.dump()], file=f)
+            
+            print('Saved checkpoint')
 
         wait_for_master()
 

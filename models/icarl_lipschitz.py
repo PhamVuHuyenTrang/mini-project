@@ -318,6 +318,8 @@ class ICarlLipschitz(RobustnessOptimizer):
                     _,
                     augmented_cluster_ids,
                 ) = self.buffer.get_augment_data(choice)
+                
+                print(augment_examples.shape)
 
                 augment_output, augment_features = self.net(
                     augment_examples, returnt="full"
@@ -344,6 +346,7 @@ class ICarlLipschitz(RobustnessOptimizer):
 
     def begin_task(self, dataset):
         if self.current_task == 0:
+            torch.use_deterministic_algorithms(True)
             self.load_initial_checkpoint()
             self.reset_classifier()
 
@@ -352,6 +355,7 @@ class ICarlLipschitz(RobustnessOptimizer):
             self.init_net(dataset)
 
         if self.current_task > 0:
+            # torch.use_deterministic_algorithms(True)
             dataset.train_loader.dataset.targets = np.concatenate(
                 [
                     dataset.train_loader.dataset.targets,

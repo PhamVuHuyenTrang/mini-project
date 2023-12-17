@@ -393,30 +393,30 @@ class Buffer(Dataset):
             transforms.RandomRotation(60),
             transforms.Normalize(mean, std),
         ])
-        self.transform75 = transforms.Compose([
-            transforms.RandomRotation(75),
-            transforms.Normalize(mean, std),
-        ])
-        self.transform90 = transforms.Compose([
-            transforms.RandomRotation(90),
-            transforms.Normalize(mean, std),
-        ])
-        self.transform105 = transforms.Compose([
-            transforms.RandomRotation(105),
-            transforms.Normalize(mean, std),
-        ])
-        self.transform120 = transforms.Compose([
-            transforms.RandomRotation(120),
-            transforms.Normalize(mean, std),
-        ])
-        self.transform135 = transforms.Compose([
-            transforms.RandomRotation(135),
-            transforms.Normalize(mean, std),
-        ])
-        self.transform150 = transforms.Compose([
-            transforms.RandomRotation(150),
-            transforms.Normalize(mean, std),
-        ])
+        # self.transform75 = transforms.Compose([
+        #     transforms.RandomRotation(75),
+        #     transforms.Normalize(mean, std),
+        # ])
+        # self.transform90 = transforms.Compose([
+        #     transforms.RandomRotation(90),
+        #     transforms.Normalize(mean, std),
+        # ])
+        # self.transform105 = transforms.Compose([
+        #     transforms.RandomRotation(105),
+        #     transforms.Normalize(mean, std),
+        # ])
+        # self.transform120 = transforms.Compose([
+        #     transforms.RandomRotation(120),
+        #     transforms.Normalize(mean, std),
+        # ])
+        # self.transform135 = transforms.Compose([
+        #     transforms.RandomRotation(135),
+        #     transforms.Normalize(mean, std),
+        # ])
+        # self.transform150 = transforms.Compose([
+        #     transforms.RandomRotation(150),
+        #     transforms.Normalize(mean, std),
+        # ])
         setattr(self, 'partition_func', partition_func)
         
 
@@ -431,12 +431,12 @@ class Buffer(Dataset):
                     torch.stack([self.transform30(ee.cpu()) for ee in self.examples]),
                     torch.stack([self.transform45(ee.cpu()) for ee in self.examples]),
                     torch.stack([self.transform60(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform75(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform90(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform105(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform120(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform135(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform150(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform75(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform90(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform105(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform120(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform135(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform150(ee.cpu()) for ee in self.examples]),
                 ]).to(self.device)
         
         if hasattr(self, 'labels'):

@@ -92,6 +92,5 @@ def main(args=None):
 if __name__ == '__main__':
     # sys.stdout = open('output.txt','a', errors='ignore')
     # sys.stderr = open('output.txt','a', errors='ignore')
-    # os.environ["CUBLAS_WORKSPACE_CONFIG"]=":4096:8"
-    # torch.use_deterministic_algorithms(True)
+    os.environ["CUBLAS_WORKSPACE_CONFIG"]=":4096:8"
     main()

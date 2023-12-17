@@ -355,7 +355,7 @@ class ICarlLipschitz(RobustnessOptimizer):
             self.init_net(dataset)
 
         if self.current_task > 0:
-            # torch.use_deterministic_algorithms(True)
+            torch.use_deterministic_algorithms(False)
             dataset.train_loader.dataset.targets = np.concatenate(
                 [
                     dataset.train_loader.dataset.targets,

@@ -410,38 +410,71 @@ class Buffer(Dataset):
             transforms.Normalize(mean, std),
         ])
 
-        # self.transform135 = transforms.Compose([
-        #     transforms.RandomRotation(13.5),
-        #     transforms.Normalize(mean, std),
-        # ])
-        # self.transform150 = transforms.Compose([
-        #     transforms.RandomRotation(15.0),
-        #     transforms.Normalize(mean, std),
-        # ])
-        # self.transform165 = transforms.Compose([
-        #     transforms.RandomRotation(16.5),
-        #     transforms.Normalize(mean, std),
-        # ])
-        # self.transform180 = transforms.Compose([
-        #     transforms.RandomRotation(18.0),
-        #     transforms.Normalize(mean, std),
-        # ])
-        # self.transform195 = transforms.Compose([
-        #     transforms.RandomRotation(19.5),
-        #     transforms.Normalize(mean, std),
-        # ])
-        # self.transform210 = transforms.Compose([
-        #     transforms.RandomRotation(21.0),
-        #     transforms.Normalize(mean, std),
-        # ])
-        # self.transform225 = transforms.Compose([
-        #     transforms.RandomRotation(22.5),
-        #     transforms.Normalize(mean, std),
-        # ])
-        # self.transform240 = transforms.Compose([
-        #     transforms.RandomRotation(24.0),
-        #     transforms.Normalize(mean, std),
-        # ])
+        self.transform135 = transforms.Compose([
+            transforms.RandomRotation(13.5),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform150 = transforms.Compose([
+            transforms.RandomRotation(15.0),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform165 = transforms.Compose([
+            transforms.RandomRotation(16.5),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform180 = transforms.Compose([
+            transforms.RandomRotation(18.0),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform195 = transforms.Compose([
+            transforms.RandomRotation(19.5),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform210 = transforms.Compose([
+            transforms.RandomRotation(21.0),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform225 = transforms.Compose([
+            transforms.RandomRotation(22.5),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform240 = transforms.Compose([
+            transforms.RandomRotation(24.0),
+            transforms.Normalize(mean, std),
+        ])
+
+        self.transform255 = transforms.Compose([
+            transforms.RandomRotation(25.5),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform270 = transforms.Compose([
+            transforms.RandomRotation(27.0),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform285 = transforms.Compose([
+            transforms.RandomRotation(28.5),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform300 = transforms.Compose([
+            transforms.RandomRotation(30.0),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform315 = transforms.Compose([
+            transforms.RandomRotation(31.5),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform330 = transforms.Compose([
+            transforms.RandomRotation(33.0),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform345 = transforms.Compose([
+            transforms.RandomRotation(34.5),
+            transforms.Normalize(mean, std),
+        ])
+        self.transform360 = transforms.Compose([
+            transforms.RandomRotation(36.0),
+            transforms.Normalize(mean, std),
+        ])
         setattr(self, 'partition_func', partition_func)
         
 
@@ -460,14 +493,24 @@ class Buffer(Dataset):
                     torch.stack([self.transform90(ee.cpu()) for ee in self.examples]),
                     torch.stack([self.transform105(ee.cpu()) for ee in self.examples]),
                     torch.stack([self.transform120(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform135(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform150(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform165(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform180(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform195(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform210(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform225(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform240(ee.cpu()) for ee in self.examples]),
+                    
+                    torch.stack([self.transform135(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform150(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform165(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform180(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform195(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform210(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform225(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform240(ee.cpu()) for ee in self.examples]),
+                    
+                    torch.stack([self.transform255(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform270(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform285(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform300(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform315(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform330(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform345(ee.cpu()) for ee in self.examples]),
+                    torch.stack([self.transform360(ee.cpu()) for ee in self.examples]),
 
                 ]).to(self.device)
         

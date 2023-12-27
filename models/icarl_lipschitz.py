@@ -231,18 +231,18 @@ class ICarlLipschitz(RobustnessOptimizer):
             with torch.no_grad():
                 logits = torch.sigmoid(self.icarl_old_net(inputs))
         self.opt.zero_grad()
-
-        transform = nn.Sequential(
-                RandomResizedCrop(size=(84, 84), scale=(0.2, 1.)),
-                RandomHorizontalFlip(),
-                ColorJitter(0.4, 0.4, 0.4, 0.1),
-                RandomGrayscale(p=0.2)
-            )
-        augment = transform(inputs)
-        inputs = torch.cat([inputs, augment], dim=0)
-        labels = torch.cat([labels, labels], dim=0)
-        if logits is not None:
-            logits = torch.cat([logits, logits], dim=0)
+        if self.args.augment:
+            transform = nn.Sequential(
+                    RandomResizedCrop(size=(84, 84), scale=(0.2, 1.)),
+                    RandomHorizontalFlip(),
+                    ColorJitter(0.4, 0.4, 0.4, 0.1),
+                    RandomGrayscale(p=0.2)
+                )
+            augment = transform(inputs)
+            inputs = torch.cat([inputs, augment], dim=0)
+            labels = torch.cat([labels, labels], dim=0)
+            if logits is not None:
+                logits = torch.cat([logits, logits], dim=0)
 
         loss, _ = self.get_loss(inputs, labels, self.current_task, logits)
 

@@ -240,6 +240,9 @@ class ICarlLipschitz(RobustnessOptimizer):
             )
         augment = transform(inputs)
         inputs = torch.cat([inputs, augment], dim=0)
+        labels = torch.cat([labels, labels], dim=0)
+        if logits is not None:
+            logits = torch.cat([logits, logits], dim=0)
 
         loss, _ = self.get_loss(inputs, labels, self.current_task, logits)
 

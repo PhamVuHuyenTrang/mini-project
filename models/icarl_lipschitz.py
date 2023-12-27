@@ -319,7 +319,6 @@ class ICarlLipschitz(RobustnessOptimizer):
                     augmented_cluster_ids,
                 ) = self.buffer.get_augment_data(choice)
                 
-                print(augment_examples.shape)
 
                 augment_output, augment_features = self.net(
                     augment_examples, returnt="full"

@@ -18,7 +18,7 @@ from functions.args import *
 from models.utils.continual_model import ContinualModel
 from functions.distributed import make_dp
 from functions.lipschitz import RobustnessOptimizer, add_regularization_args
-from functions.create_partition import create_partition_func_1nn
+from functions.create_partition import create_partition_func_1nn, create_nearest_buffer_instance_func
 from functions.no_bn import bn_track_stats
 import numpy as np
 from functions.augmentations import (
@@ -28,7 +28,7 @@ from functions.augmentations import (
     change_colors,
 )
 
-partition_func = create_partition_func_1nn((84, 84, 3), n_centroids=5000)
+# partition_func = create_partition_func_1nn((84, 84, 3), n_centroids=5000)
 
 
 def get_parser() -> ArgumentParser:
@@ -158,7 +158,7 @@ def icarl_fill_buffer(
                 examples=_x[idx_min : idx_min + 1].to(self.device),
                 labels=_y[idx_min : idx_min + 1].to(self.device),
                 logits=_l[idx_min : idx_min + 1].to(self.device),
-                clusterID=partition_func(_x[idx_min : idx_min + 1]).to(self.device),
+                clusterID=torch.tensor(i).to(self.device),
             )
 
             running_sum += feats[idx_min : idx_min + 1]
@@ -449,6 +449,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                 self.dataset.get_denormalization_transform().mean,
                 self.dataset.get_denormalization_transform().std,
             )
+            partition_func = create_nearest_buffer_instance_func(self.buffer.examples)
             self.buffer.generate_augment_data(mean, std, partition_func)
         self.current_task += 1
         self.class_means = None

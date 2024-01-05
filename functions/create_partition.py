@@ -1,4 +1,6 @@
 import torch
+
+
 def create_partition_func_grid(input_size):
     """
     Create a partition function for a tensor with given size.
@@ -31,7 +33,7 @@ def create_partition_func_grid(input_size):
     return _cal_partition
 
 
-def create_partition_func_1nn(input_size, n_centroids = 5000):
+def create_partition_func_1nn(input_size, n_centroids=5000):
     """
     Create a partition function for a tensor with given size, which will assign
     the paritition ID to the input.
@@ -61,3 +63,12 @@ def create_partition_func_1nn(input_size, n_centroids = 5000):
         return res.long()
 
     return _cal_partition
+
+
+def create_nearest_buffer_instance_func(buffer: torch.Tensor):
+    def nearest_buffer_instance(augment: torch.Tensor):
+        ans = torch.cdist(buffer.flatten(start_dim=1), augment.flatten(start_dim=1)).argmin(
+            dim=0
+        )
+        return ans
+    return nearest_buffer_instance

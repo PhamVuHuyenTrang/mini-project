@@ -353,7 +353,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                 # print("buffer_output", buffer_output)
                 reg = 0.01
                 mean = 1 / (len(augment_features) * 4 * (self.buffer.buffer_size**2))
-                print(len(augment_features), len(buffer_feature))
+                print(augment_features[0].shape, buffer_feature[0].shape)
                 exit()
                 for af, bf in zip(augment_features, buffer_feature):
                     # print("bf.shape[0]", bf.shape[0])

@@ -235,14 +235,6 @@ class ContinualModel(nn.Module):
         self.transform = transform
         
         self.setting = get_dataset(args).get_setting()
-        if hasattr(args, "batch_size"):
-            self.setting.batch_size = args.batch_size
-        if hasattr(args, "minibatch_size"):
-            self.setting.minibatch_size = args.minibatch_size
-        if hasattr(args, "pre_epochs"):
-            self.setting.pre_epochs = args.pre_epochs
-        if hasattr(args, "epochs"):
-            self.setting.epochs = args.epochs
 
         self.opt = SGD(self.net.parameters(), lr=self.args.lr,
                        weight_decay=self.args.optim_wd, momentum=self.args.optim_mom)

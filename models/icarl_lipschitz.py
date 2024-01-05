@@ -3,7 +3,12 @@ from copy import deepcopy
 from functions.augmentations import normalize
 import torch
 import torch.nn as nn
-from torchvision.transforms import RandomHorizontalFlip, RandomResizedCrop, ColorJitter, RandomGrayscale
+from torchvision.transforms import (
+    RandomHorizontalFlip,
+    RandomResizedCrop,
+    ColorJitter,
+    RandomGrayscale,
+)
 
 import torch.nn.functional as F
 from torchvision import transforms
@@ -233,11 +238,11 @@ class ICarlLipschitz(RobustnessOptimizer):
         self.opt.zero_grad()
         if self.args.augment:
             transform = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.2, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.4, 0.4, 0.4, 0.1),
-                    RandomGrayscale(p=0.2)
-                )
+                RandomResizedCrop(size=(84, 84), scale=(0.2, 1.0)),
+                RandomHorizontalFlip(),
+                ColorJitter(0.4, 0.4, 0.4, 0.1),
+                RandomGrayscale(p=0.2),
+            )
             augment = transform(inputs)
             inputs = torch.cat([inputs, augment], dim=0)
             labels = torch.cat([labels, labels], dim=0)
@@ -275,8 +280,8 @@ class ICarlLipschitz(RobustnessOptimizer):
         ac = (task_idx + 1) * self.dataset.N_CLASSES_PER_TASK
 
         outputs, output_features = self.net(inputs, returnt="full")
-        #print("input___", inputs)
-        #print("outputs", outputs)
+        # print("input___", inputs)
+        # print("outputs", outputs)
         outputs = outputs[:, :ac]
 
         if task_idx == 0:
@@ -287,12 +292,12 @@ class ICarlLipschitz(RobustnessOptimizer):
         else:
             targets = self.eye[labels][:, pc:ac]
             comb_targets = torch.cat((logits[:, :pc], targets), dim=1)
-            #print("logits", logits[:, :pc])
-            #print("targets", targets)
+            # print("logits", logits[:, :pc])
+            # print("targets", targets)
             loss_ce = F.binary_cross_entropy_with_logits(outputs, comb_targets)
-            #print("comb_targets" ,comb_targets)
-            #print("outputs", outputs)
-            #print("loss_ce", loss_ce)
+            # print("comb_targets" ,comb_targets)
+            # print("outputs", outputs)
+            # print("loss_ce", loss_ce)
             assert loss_ce >= 0
 
         if self.args.wd_reg:
@@ -312,12 +317,14 @@ class ICarlLipschitz(RobustnessOptimizer):
         loss_reg = torch.zeros_like(loss_ce).to(self.device)
 
         if not self.buffer.is_empty():
-            if self.args.method == 'lider':
+            if self.args.method == "lider":
                 lip_inputs = [inputs] + output_features[:-1]
-                
-                loss_reg = self.args.buffer_lip_lambda * self.buffer_lip_loss(lip_inputs) + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
 
-            elif self.args.method == 'localrobustness':
+                loss_reg = self.args.buffer_lip_lambda * self.buffer_lip_loss(
+                    lip_inputs
+                ) + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
+
+            elif self.args.method == "localrobustness":
                 (
                     choice,
                     buffer_x,
@@ -325,7 +332,9 @@ class ICarlLipschitz(RobustnessOptimizer):
                     buffer_logits,
                     buffer_cluster_ids,
                 ) = self.buffer.get_data(
-                    self.setting.minibatch_size, transform=self.transform, return_index=True
+                    self.setting.minibatch_size,
+                    transform=self.transform,
+                    return_index=True,
                 )
 
                 (
@@ -334,28 +343,29 @@ class ICarlLipschitz(RobustnessOptimizer):
                     _,
                     augmented_cluster_ids,
                 ) = self.buffer.get_augment_data(choice)
-                
 
                 augment_output, augment_features = self.net(
                     augment_examples, returnt="full"
                 )
-                #print("augment_examples", augment_examples)
-                #print("augment_output", augment_output)
+                # print("augment_examples", augment_examples)
+                # print("augment_output", augment_output)
                 buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
-                #print("buffer_output", buffer_output)
+                # print("buffer_output", buffer_output)
                 reg = 0.01
-                mean = 1/(len(augment_features) * 4 * (self.buffer.buffer_size ** 2))
+                mean = 1 / (len(augment_features) * 4 * (self.buffer.buffer_size**2))
+                print(len(augment_features), len(buffer_feature))
+                exit()
                 for af, bf in zip(augment_features, buffer_feature):
-                    #print("bf.shape[0]", bf.shape[0])
+                    # print("bf.shape[0]", bf.shape[0])
                     bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))
                     if len(bf.shape) == 2:
-                        distance = torch.sqrt(((bf - af) ** 2).sum(dim = (1,)))
+                        distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1,)))
                     else:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
                     loss_reg += reg * mean * distance.sum()
-                    #print("loss_reg", loss_reg)
+                    # print("loss_reg", loss_reg)
 
-        print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_reg: {loss_reg}')
+        print(f"loss ce: {loss_ce}, loss wd: {loss_wd}, loss_reg: {loss_reg}")
         loss = loss_ce + loss_wd + loss_reg
         return loss, output_features
 

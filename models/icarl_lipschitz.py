@@ -352,8 +352,10 @@ class ICarlLipschitz(RobustnessOptimizer):
                 buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
                 # print("buffer_output", buffer_output)
                 reg = 0.01
-                mean = 1 / (len(augment_features) * 4 * (self.buffer.buffer_size**2))
+                mean = 1 / (len(augment_features ) * 4 * (self.buffer.buffer_size**2))
                 print(augment_features[0].shape, buffer_feature[0].shape)
+                print(augmented_cluster_ids[:10])
+                print(buffer_cluster_ids[:10])
                 exit()
                 for af, bf in zip(augment_features, buffer_feature):
                     # print("bf.shape[0]", bf.shape[0])

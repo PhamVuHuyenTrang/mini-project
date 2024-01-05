@@ -158,7 +158,7 @@ def icarl_fill_buffer(
                 examples=_x[idx_min : idx_min + 1].to(self.device),
                 labels=_y[idx_min : idx_min + 1].to(self.device),
                 logits=_l[idx_min : idx_min + 1].to(self.device),
-                clusterID=torch.tensor(i).to(self.device),
+                clusterID=torch.Tensor([i]).to(torch.int).to(self.device),
             )
 
             running_sum += feats[idx_min : idx_min + 1]

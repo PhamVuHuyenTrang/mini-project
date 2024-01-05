@@ -18,7 +18,7 @@ from functions.args import *
 from models.utils.continual_model import ContinualModel
 from functions.distributed import make_dp
 from functions.lipschitz import RobustnessOptimizer, add_regularization_args
-from functions.create_partition import create_partition_func_1nn, create_nearest_buffer_instance_func
+from functions.create_partition import create_partition_func_1nn, create_nearest_buffer_instance_func, create_id_func
 from functions.no_bn import bn_track_stats
 import numpy as np
 from functions.augmentations import (
@@ -29,7 +29,7 @@ from functions.augmentations import (
 )
 
 # partition_func = create_partition_func_1nn((84, 84, 3), n_centroids=5000)
-
+id_func = create_id_func()
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(

@@ -501,20 +501,20 @@ class Buffer(Dataset):
                     RandomGrayscale(p=0.25)
                 )
         self.transform21 = transforms.Compose([
-            transforms.RandomRotation(22.5),
+            transforms.RandomRotation(25),
             transforms.Normalize(mean, std),
         ])
         self.transform22 = transforms.Compose([
-            transforms.RandomRotation(24.0),
+            transforms.RandomRotation(40),
             transforms.Normalize(mean, std),
         ])
 
         self.transform23 = transforms.Compose([
-            transforms.RandomRotation(25.5),
+            transforms.RandomRotation(55),
             transforms.Normalize(mean, std),
         ])
         self.transform24 = transforms.Compose([
-            transforms.RandomRotation(27.0),
+            transforms.RandomRotation(70),
             transforms.Normalize(mean, std),
         ])
         setattr(self, 'partition_func', partition_func)

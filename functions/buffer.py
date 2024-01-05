@@ -559,3 +559,63 @@ class Buffer(Dataset):
         if hasattr(self, 'labels'):
             with torch.no_grad():
                 self.augment_labels = torch.cat([self.labels] * 4).to(self.device)
+        
+        if hasattr(self, 'logits'):
+            self.augment_logits = None
+        
+        if hasattr(self, 'clusterID'):
+            with torch.no_grad():
+                self.augment_clusterID = self.partition_func(self.augment_examples)
+        
+        if hasattr(self, 'task_labels'):
+            with torch.no_grad():
+                self.augment_task_labels = torch.cat([self.task_labels] * 4).to(self.device)
+
+
+        ret_tuple = ()
+        if hasattr(self, 'augment_examples'):
+            augment_choice = torch.cat([choice,
+                                        choice + self.buffer_size,
+                                        choice + 2 * self.buffer_size,
+                                        choice + 3 * self.buffer_size])
+            ret_tuple = (self.augment_examples[augment_choice],)
+            for attr_str in ['augment_labels', 'augment_logits', 'augment_clusterID']:
+                if hasattr(self, attr_str):
+                    attr = getattr(self, attr_str)
+                    if attr is not None:
+                        ret_tuple += (attr[augment_choice],)
+                    else:
+                        ret_tuple += (attr,)
+            return ret_tuple
+        else:
+            return None
+
+        if hasattr(self, 'logits'):
+            self.augment_logits = None
+        
+        if hasattr(self, 'clusterID'):
+            with torch.no_grad():
+                self.augment_clusterID = self.partition_func(self.augment_examples)
+        
+        if hasattr(self, 'task_labels'):
+            with torch.no_grad():
+                self.augment_task_labels = torch.cat([self.task_labels] * 4).to(self.device)
+
+
+        ret_tuple = ()
+        if hasattr(self, 'augment_examples'):
+            augment_choice = torch.cat([choice,
+                                        choice + self.buffer_size,
+                                        choice + 2 * self.buffer_size,
+                                        choice + 3 * self.buffer_size])
+            ret_tuple = (self.augment_examples[augment_choice],)
+            for attr_str in ['augment_labels', 'augment_logits', 'augment_clusterID']:
+                if hasattr(self, attr_str):
+                    attr = getattr(self, attr_str)
+                    if attr is not None:
+                        ret_tuple += (attr[augment_choice],)
+                    else:
+                        ret_tuple += (attr,)
+            return ret_tuple
+        else:
+            return None

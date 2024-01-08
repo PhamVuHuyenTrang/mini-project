@@ -75,9 +75,9 @@ def create_nearest_buffer_instance_func(buffer: torch.Tensor):
 
 
 def nearest_buffer_instance(buffer: torch.Tensor, augment: torch.Tensor):
-    ans = torch.cdist(buffer.flatten(start_dim=1), augment.flatten(start_dim=1)).argmin(
-        dim=0
-    )
+    ans = torch.cdist(buffer.flatten(start_dim=1), augment.flatten(start_dim=1))
+    print('pairwise distance shape: ', ans.shape)
+    ans = ans.argmax(dim=0)
     return ans
 
 
@@ -86,3 +86,9 @@ def create_id_func():
     def id(x):
         return torch.Tensor(range(x.shape[0])).long()
     return id
+
+
+if __name__ == "__main__":
+    buffer = torch.rand(100, 3, 32, 32).cuda()
+    augment = torch.rand(1000, 3, 32, 32).cuda()
+    print(nearest_buffer_instance(buffer, augment))

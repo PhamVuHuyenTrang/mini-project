@@ -356,7 +356,8 @@ class ICarlLipschitz(RobustnessOptimizer):
                 # nearest buffer instance in minibatch
                 augmented_cluster_ids = nearest_buffer_instance(buffer_x, augment_examples)
 
-
+                print('buffer shape: ', buffer_x.shape)
+                print('augment shape: ', augment_examples.shape)
                 
                 reg = 0.01
                 mean = 1 / (len(augment_features ) * 4 * (self.buffer.buffer_size**2))

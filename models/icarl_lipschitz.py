@@ -337,6 +337,8 @@ class ICarlLipschitz(RobustnessOptimizer):
                     return_index=True,
                 )
 
+                buffer_cluster_ids = nearest_buffer_instance(buffer_x, buffer_x)
+
                 (
                     augment_examples,
                     augmented_labels,

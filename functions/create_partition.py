@@ -76,6 +76,7 @@ def create_nearest_buffer_instance_func(buffer: torch.Tensor):
 
 def nearest_buffer_instance(buffer: torch.Tensor, augment: torch.Tensor):
     ans = torch.cdist(buffer.flatten(start_dim=1), augment.flatten(start_dim=1))
+    print(ans)
     print('pairwise distance shape: ', ans.shape)
     ans = ans.argmax(dim=0)
     return ans

@@ -18,7 +18,7 @@ from functions.args import *
 from models.utils.continual_model import ContinualModel
 from functions.distributed import make_dp
 from functions.lipschitz import RobustnessOptimizer, add_regularization_args
-from functions.create_partition import create_partition_func_1nn, create_nearest_buffer_instance_func, create_id_func
+from functions.create_partition import create_partition_func_1nn, create_nearest_buffer_instance_func, create_id_func, nearest_buffer_instance
 from functions.no_bn import bn_track_stats
 import numpy as np
 from functions.augmentations import (
@@ -351,6 +351,13 @@ class ICarlLipschitz(RobustnessOptimizer):
                 # print("augment_output", augment_output)
                 buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
                 # print("buffer_output", buffer_output)
+
+
+                # nearest buffer instance in minibatch
+                augmented_cluster_ids = nearest_buffer_instance(buffer_x, augment_examples)
+
+
+                
                 reg = 0.01
                 mean = 1 / (len(augment_features ) * 4 * (self.buffer.buffer_size**2))
                 buffer_size = buffer_x[0].shape[0]

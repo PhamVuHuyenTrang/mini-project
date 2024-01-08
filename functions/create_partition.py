@@ -74,6 +74,14 @@ def create_nearest_buffer_instance_func(buffer: torch.Tensor):
     return nearest_buffer_instance
 
 
+def nearest_buffer_instance(buffer: torch.Tensor, augment: torch.Tensor):
+    ans = torch.cdist(buffer.flatten(start_dim=1), augment.flatten(start_dim=1)).argmin(
+        dim=0
+    )
+    return ans
+
+
+
 def create_id_func():
     def id(x):
         return torch.Tensor(range(x.shape[0])).long()

@@ -520,17 +520,25 @@ class Buffer(Dataset):
 
                 ], axis=0).to(self.device)
         
+        print('augment example ok')
+        
         if hasattr(self, 'labels'):
             with torch.no_grad():
                 self.augment_labels = torch.cat([self.labels] * 4).to(self.device)
         
+        print('augment labels ok')
+
         if hasattr(self, 'logits'):
             self.augment_logits = None
+
+        print('augment logits ok')
         
         if hasattr(self, 'clusterID'):
             with torch.no_grad():
                 self.augment_clusterID = self.partition_func(self.augment_examples)
         
+        print('augment clusterID ok')
+
         if hasattr(self, 'task_labels'):
             with torch.no_grad():
                 self.augment_task_labels = torch.cat([self.task_labels] * 4).to(self.device)

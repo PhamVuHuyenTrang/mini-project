@@ -488,16 +488,17 @@ class Buffer(Dataset):
         Return augmented data.
         """
         if hasattr(self, 'examples'):
+            choice_buffer = self.examples[choice]
             with torch.no_grad():
                 self.augment_examples = torch.cat([
-                    self.transform1(self.examples),
-                    self.transform1(self.examples),
-                    self.transform1(self.examples),
-                    self.transform1(self.examples),
-                    self.transform1(self.examples),
-                    self.transform1(self.examples),
-                    self.transform1(self.examples),
-                    self.transform1(self.examples),
+                    self.transform1(choice_buffer),
+                    self.transform1(choice_buffer),
+                    self.transform1(choice_buffer),
+                    self.transform1(choice_buffer),
+                    self.transform1(choice_buffer),
+                    self.transform1(choice_buffer),
+                    self.transform1(choice_buffer),
+                    self.transform1(choice_buffer),
                     
                     # torch.stack([self.transform9(ee.cpu()) for ee in self.examples]),
                     # torch.stack([self.transform10(ee.cpu()) for ee in self.examples]),
@@ -537,11 +538,11 @@ class Buffer(Dataset):
 
         ret_tuple = ()
         if hasattr(self, 'augment_examples'):
-            augment_choice = torch.cat([choice,
-                                        choice + self.buffer_size,
-                                        choice + 2 * self.buffer_size,
-                                        choice + 3 * self.buffer_size])
-            ret_tuple = (self.augment_examples[augment_choice],)
+            # augment_choice = torch.cat([choice,
+            #                             choice + self.buffer_size,
+            #                             choice + 2 * self.buffer_size,
+            #                             choice + 3 * self.buffer_size])
+            ret_tuple = (self.augment_examples,)
             for attr_str in ['augment_labels', 'augment_logits', 'augment_clusterID']:
                 if hasattr(self, attr_str):
                     attr = getattr(self, attr_str)

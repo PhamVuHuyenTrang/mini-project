@@ -342,6 +342,10 @@ class ICarlLipschitz(RobustnessOptimizer):
                     transform=self.transform,
                     return_index=True,
                 )
+                
+                torch.cuda.empty_cache()
+                buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
+                print("buffer_output", buffer_output)
 
                 # buffer_cluster_ids = nearest_buffer_instance(buffer_x, buffer_x)
 
@@ -374,8 +378,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                 # print("augment_examples", augment_examples)
                 # print("augment_output", augment_output)
                 # print('buffer x: ', buffer_x.shape)
-                buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
-                # print("buffer_output", buffer_output)
+                
 
                 # # nearest buffer instance in minibatch
                 # augmented_cluster_ids = nearest_buffer_instance(buffer_x, augment_examples)

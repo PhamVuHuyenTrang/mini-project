@@ -479,6 +479,8 @@ class Buffer(Dataset):
         #     transforms.Normalize(mean, std),
         # ])
         setattr(self, 'partition_func', partition_func)
+        self.clusterID = partition_func(self.examples)
+        print(self.clusterID)
         
 
     def get_augment_data(self, choice):

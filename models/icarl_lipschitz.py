@@ -361,9 +361,12 @@ class ICarlLipschitz(RobustnessOptimizer):
                     )
                     augment_outputs.append(augment_output)
                     augment_features.append(augment_feature)
-                
+
                 augment_output = torch.cat(augment_outputs, dim=0)
-                augment_features = torch.cat(augment_features, dim=0)
+                augment_features = [
+                    torch.cat([x[i] for x in augment_features], dim=0)
+                    for i in range(len(augment_features[0]))
+                ]
 
                 # augment_output, augment_features = self.net(
                 #     augment_examples, returnt="full"
@@ -407,9 +410,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                     # loss_reg += reg * mean * distance.sum()
                     loss_reg += (
                         reg
-                        * (
-                            distance * (bf_cluster == augmented_cluster_ids)
-                        ).sum()
+                        * (distance * (bf_cluster == augmented_cluster_ids)).sum()
                         / ((bf_cluster == augmented_cluster_ids).sum() + 1e-6)
                     )
                     # print("loss_reg", loss_reg)

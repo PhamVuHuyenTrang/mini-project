@@ -381,10 +381,10 @@ class Buffer(Dataset):
             return
 
         self.transform1 = RandomGrayscale(p=0.5)
-        self.transform2 = lambda inp: kornia.morphology.dilation(inp, kernel=torch.ones(3, 3))
-        self.transform3 = lambda inp: kornia.morphology.erosion(inp, kernel=torch.ones(3, 3))
-        self.transform4 = lambda inp: kornia.morphology.opening(inp, kernel=torch.ones(3, 3))
-        self.transform5 = lambda inp: kornia.morphology.closing(inp, kernel=torch.ones(3, 3))
+        self.transform2 = lambda inp: kornia.morphology.dilation(inp, kernel=torch.ones(3, 3).to(self.device))
+        self.transform3 = lambda inp: kornia.morphology.erosion(inp, kernel=torch.ones(3, 3).to(self.device))
+        self.transform4 = lambda inp: kornia.morphology.opening(inp, kernel=torch.ones(3, 3).to(self.device))
+        self.transform5 = lambda inp: kornia.morphology.closing(inp, kernel=torch.ones(3, 3).to(self.device))
         self.transform6 = kornia.augmentation.RandomPlanckianJitter(mode='blackbody', p=1., select_from=list(range(24)))
         self.transform7 = kornia.augmentation.RandomPlanckianJitter(mode='CIED', p=1., select_from=list(range(22)))
         self.transform8 = kornia.augmentation.RandomBoxBlur(p=1.)

@@ -10,6 +10,7 @@ from torchvision.transforms import RandomHorizontalFlip, RandomResizedCrop, Colo
 import gc
 from functions.create_partition import create_partition_func_1nn, create_partition_func_grid, create_id_func
 from functions.no_bn import bn_track_stats
+import kornia
 
 
 def reservoir(num_seen_examples: int, buffer_size: int) -> int:
@@ -379,144 +380,104 @@ class Buffer(Dataset):
         if not hasattr(self, 'examples'):
             return
 
-        self.transform1 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.2, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.4, 0.4, 0.4, 0.1),
-                    RandomGrayscale(p=0.2)
-                )
-        self.transform2 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.5, 0.8)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.5, 0.5, 0.5, 0.1),
-                    RandomGrayscale(p=0.3)
-                )
-        self.transform3 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.6, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.6, 0.6, 0.1, 0.1),
-                    RandomGrayscale(p=0.35)
-                )
-        self.transform4 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.65, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.65, 0.65, 0.65, 0.1),
-                    RandomGrayscale(p=0.4)
-                )
-        self.transform5 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.7, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.7, 0.7, 0.7, 0.1),
-                    RandomGrayscale(p=0.45)
-                )
-        self.transform6 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.28, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.75, 0.75, 0.75, 0.1),
-                    RandomGrayscale(p=0.55)
-                )
-        self.transform7 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.52, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.34, 0.34, 0.34, 0.1),
-                    RandomGrayscale(p=0.32)
-                )
-        self.transform8 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.42, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.624, 0.624, 0.624, 0.1),
-                    RandomGrayscale(p=0.2)
-                )
-        self.transform9 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.76, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.714, 0.714, 0.714, 0.1),
-                    RandomGrayscale(p=0.2)
-                )
-        self.transform10 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.319, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.36, 0.36, 0.36, 0.1),
-                    RandomGrayscale(p=0.46)
-                )
+        self.transform1 = RandomGrayscale(p=0.5)
+        self.transform2 = lambda inp: kornia.morphology.dilation(inp, kernel=torch.ones(3, 3))
+        self.transform3 = lambda inp: kornia.morphology.erosion(inp, kernel=torch.ones(3, 3))
+        self.transform4 = lambda inp: kornia.morphology.opening(inp, kernel=torch.ones(3, 3))
+        self.transform5 = lambda inp: kornia.morphology.closing(inp, kernel=torch.ones(3, 3))
+        self.transform6 = kornia.augmentation.RandomPlanckianJitter(mode='blackbody', p=1., select_from=list(range(24)))
+        self.transform7 = kornia.augmentation.RandomPlanckianJitter(mode='CIED', p=1., select_from=list(range(22)))
+        self.transform8 = kornia.augmentation.RandomBoxBlur(p=1.)
+        # self.transform9 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.76, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.714, 0.714, 0.714, 0.1),
+        #             RandomGrayscale(p=0.2)
+        #         )
+        # self.transform10 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.319, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.36, 0.36, 0.36, 0.1),
+        #             RandomGrayscale(p=0.46)
+        #         )
         
-        self.transform11 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.19, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.44, 0.44, 0.44, 0.1),
-                    RandomGrayscale(p=0.27)
-                )
-        self.transform12 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.619, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.619, 0.619, 0.619, 0.1),
-                    RandomGrayscale(p=0.37)
-                )
-        self.transform13 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.729, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.24, 0.24, 0.24, 0.1),
-                    RandomGrayscale(p=0.25)
-                )
-        self.transform14 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.739, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.24, 0.24, 0.24, 0.1),
-                    RandomGrayscale(p=0.25)
-                )
-        self.transform15 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.749, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.24, 0.24, 0.24, 0.1),
-                    RandomGrayscale(p=0.25)
-                )
-        self.transform16 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.759, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.24, 0.24, 0.24, 0.1),
-                    RandomGrayscale(p=0.25)
-                )
-        self.transform17 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.769, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.24, 0.24, 0.24, 0.1),
-                    RandomGrayscale(p=0.15)
-                )
-        self.transform18 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.779, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.24, 0.24, 0.24, 0.1),
-                    RandomGrayscale(p=0.45)
-                )
-        self.transform19 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.789, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.24, 0.24, 0.24, 0.1),
-                    RandomGrayscale(p=0.35)
-                )
-        self.transform20 = nn.Sequential(
-                    RandomResizedCrop(size=(84, 84), scale=(0.799, 1.)),
-                    RandomHorizontalFlip(),
-                    ColorJitter(0.24, 0.24, 0.24, 0.1),
-                    RandomGrayscale(p=0.25)
-                )
-        self.transform21 = transforms.Compose([
-            transforms.RandomRotation(25),
-            transforms.Normalize(mean, std),
-        ])
-        self.transform22 = transforms.Compose([
-            transforms.RandomRotation(40),
-            transforms.Normalize(mean, std),
-        ])
+        # self.transform11 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.19, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.44, 0.44, 0.44, 0.1),
+        #             RandomGrayscale(p=0.27)
+        #         )
+        # self.transform12 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.619, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.619, 0.619, 0.619, 0.1),
+        #             RandomGrayscale(p=0.37)
+        #         )
+        # self.transform13 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.729, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.24, 0.24, 0.24, 0.1),
+        #             RandomGrayscale(p=0.25)
+        #         )
+        # self.transform14 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.739, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.24, 0.24, 0.24, 0.1),
+        #             RandomGrayscale(p=0.25)
+        #         )
+        # self.transform15 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.749, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.24, 0.24, 0.24, 0.1),
+        #             RandomGrayscale(p=0.25)
+        #         )
+        # self.transform16 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.759, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.24, 0.24, 0.24, 0.1),
+        #             RandomGrayscale(p=0.25)
+        #         )
+        # self.transform17 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.769, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.24, 0.24, 0.24, 0.1),
+        #             RandomGrayscale(p=0.15)
+        #         )
+        # self.transform18 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.779, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.24, 0.24, 0.24, 0.1),
+        #             RandomGrayscale(p=0.45)
+        #         )
+        # self.transform19 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.789, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.24, 0.24, 0.24, 0.1),
+        #             RandomGrayscale(p=0.35)
+        #         )
+        # self.transform20 = nn.Sequential(
+        #             RandomResizedCrop(size=(84, 84), scale=(0.799, 1.)),
+        #             RandomHorizontalFlip(),
+        #             ColorJitter(0.24, 0.24, 0.24, 0.1),
+        #             RandomGrayscale(p=0.25)
+        #         )
+        # self.transform21 = transforms.Compose([
+        #     transforms.RandomRotation(25),
+        #     transforms.Normalize(mean, std),
+        # ])
+        # self.transform22 = transforms.Compose([
+        #     transforms.RandomRotation(40),
+        #     transforms.Normalize(mean, std),
+        # ])
 
-        self.transform23 = transforms.Compose([
-            transforms.RandomRotation(55),
-            transforms.Normalize(mean, std),
-        ])
-        self.transform24 = transforms.Compose([
-            transforms.RandomRotation(70),
-            transforms.Normalize(mean, std),
-        ])
+        # self.transform23 = transforms.Compose([
+        #     transforms.RandomRotation(55),
+        #     transforms.Normalize(mean, std),
+        # ])
+        # self.transform24 = transforms.Compose([
+        #     transforms.RandomRotation(70),
+        #     transforms.Normalize(mean, std),
+        # ])
         setattr(self, 'partition_func', partition_func)
         
 
@@ -536,23 +497,23 @@ class Buffer(Dataset):
                     torch.stack([self.transform7(ee.cpu()) for ee in self.examples]),
                     torch.stack([self.transform8(ee.cpu()) for ee in self.examples]),
                     
-                    torch.stack([self.transform9(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform10(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform11(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform12(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform13(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform14(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform15(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform16(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform9(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform10(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform11(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform12(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform13(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform14(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform15(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform16(ee.cpu()) for ee in self.examples]),
                     
-                    torch.stack([self.transform17(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform18(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform19(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform20(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform21(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform22(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform23(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform24(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform17(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform18(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform19(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform20(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform21(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform22(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform23(ee.cpu()) for ee in self.examples]),
+                    # torch.stack([self.transform24(ee.cpu()) for ee in self.examples]),
 
                 ]).to(self.device)
         

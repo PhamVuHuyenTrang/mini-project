@@ -387,6 +387,9 @@ class ICarlLipschitz(RobustnessOptimizer):
                     bf_cluster = torch.cat(
                         [buffer_cluster_ids] * (af.shape[0] // bf.shape[0])
                     )
+                    print(af.shape)
+                    print(bf.shape)
+                    print(bf_cluster.shape)
                     if len(bf.shape) == 2:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1,)))
                     else:

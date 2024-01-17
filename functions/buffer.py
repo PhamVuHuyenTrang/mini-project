@@ -380,7 +380,7 @@ class Buffer(Dataset):
         if not hasattr(self, 'examples'):
             return
 
-        self.transform1 = RandomGrayscale(p=0.5)
+        self.transform1 = RandomGrayscale(p=1.)
         self.transform2 = lambda inp: kornia.morphology.dilation(inp, kernel=torch.ones(3, 3).to(self.device))
         self.transform3 = lambda inp: kornia.morphology.erosion(inp, kernel=torch.ones(3, 3).to(self.device))
         self.transform4 = lambda inp: kornia.morphology.opening(inp, kernel=torch.ones(3, 3).to(self.device))

@@ -384,6 +384,9 @@ class ICarlLipschitz(RobustnessOptimizer):
                 for af, bf in zip(augment_features, buffer_feature):
                     # duyet qua cac layer
                     bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))
+                    bf_cluster = torch.cat(
+                        [buffer_cluster_ids] * (af.shape[0] // bf.shape[0])
+                    )
                     if len(bf.shape) == 2:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1,)))
                     else:
@@ -392,11 +395,11 @@ class ICarlLipschitz(RobustnessOptimizer):
                     loss_reg += (
                         reg
                         * (
-                            distance * (buffer_cluster_ids == augmented_cluster_ids)
+                            distance * (bf_cluster == augmented_cluster_ids)
                         ).sum()
-                        / ((buffer_cluster_ids == augmented_cluster_ids).sum() + 1e-6)
+                        / ((bf_cluster == augmented_cluster_ids).sum() + 1e-6)
                     )
-                    print((buffer_cluster_ids == augmented_cluster_ids).sum())
+                    print((bf_cluster == augmented_cluster_ids).sum())
                     # print("loss_reg", loss_reg)
 
         print(f"loss ce: {loss_ce}, loss wd: {loss_wd}, loss_reg: {loss_reg}")

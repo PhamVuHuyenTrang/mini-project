@@ -18,7 +18,12 @@ from functions.args import *
 from models.utils.continual_model import ContinualModel
 from functions.distributed import make_dp
 from functions.lipschitz import RobustnessOptimizer, add_regularization_args
-from functions.create_partition import create_partition_func_1nn, create_nearest_buffer_instance_func, create_id_func, nearest_buffer_instance
+from functions.create_partition import (
+    create_partition_func_1nn,
+    create_nearest_buffer_instance_func,
+    create_id_func,
+    nearest_buffer_instance,
+)
 from functions.no_bn import bn_track_stats
 import numpy as np
 from functions.augmentations import (
@@ -30,6 +35,7 @@ from functions.augmentations import (
 
 # partition_func = create_partition_func_1nn((84, 84, 3), n_centroids=5000)
 id_func = create_id_func()
+
 
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(
@@ -354,36 +360,43 @@ class ICarlLipschitz(RobustnessOptimizer):
                 buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
                 # print("buffer_output", buffer_output)
 
-
                 # # nearest buffer instance in minibatch
                 # augmented_cluster_ids = nearest_buffer_instance(buffer_x, augment_examples)
 
-                print('buffer shape: ', buffer_x.shape)
-                print('augment shape: ', augment_examples.shape)
-                
-                reg = 0.01
-                mean = 1 / (len(augment_features ) * 4 * (self.buffer.buffer_size**2))
-                buffer_size = buffer_x.shape[0]
+                # print('buffer shape: ', buffer_x.shape)
+                # print('augment shape: ', augment_examples.shape)
 
-                print(augment_features[0].shape, buffer_feature[0].shape)
-                print(augmented_cluster_ids[:20])
-                print(augmented_cluster_ids[buffer_size:buffer_size+20])
-                print(augmented_cluster_ids[2*buffer_size:2*buffer_size+20])
-                print(augmented_cluster_ids[3*buffer_size:3*buffer_size+20])
-                # print(augmented_cluster_ids[4*buffer_size:4*buffer_size+20])
-                # print(augmented_cluster_ids[5*buffer_size:5*buffer_size+20])
-                # print(augmented_cluster_ids[6*buffer_size:6*buffer_size+20])
-                # print(augmented_cluster_ids[7*buffer_size:7*buffer_size+20])
-                print(buffer_cluster_ids[:20].to(torch.int64))
-                exit()
+                reg = 0.01
+                # mean = 1 / (len(augment_features) * 4 * (self.buffer.buffer_size**2))
+                # buffer_size = buffer_x.shape[0]
+
+                # print(augment_features[0].shape, buffer_feature[0].shape)
+                # print(augmented_cluster_ids[:20])
+                # print(augmented_cluster_ids[buffer_size:buffer_size+20])
+                # print(augmented_cluster_ids[2*buffer_size:2*buffer_size+20])
+                # print(augmented_cluster_ids[3*buffer_size:3*buffer_size+20])
+                # # print(augmented_cluster_ids[4*buffer_size:4*buffer_size+20])
+                # # print(augmented_cluster_ids[5*buffer_size:5*buffer_size+20])
+                # # print(augmented_cluster_ids[6*buffer_size:6*buffer_size+20])
+                # # print(augmented_cluster_ids[7*buffer_size:7*buffer_size+20])
+                # print(buffer_cluster_ids[:20].to(torch.int64))
+                # exit()
                 for af, bf in zip(augment_features, buffer_feature):
-                    # print("bf.shape[0]", bf.shape[0])
+                    # duyet qua cac layer
                     bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))
                     if len(bf.shape) == 2:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1,)))
                     else:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
-                    loss_reg += reg * mean * distance.sum()
+                    # loss_reg += reg * mean * distance.sum()
+                    loss_reg += (
+                        reg
+                        * (
+                            distance * (buffer_cluster_ids == augmented_cluster_ids)
+                        ).sum()
+                        / ((buffer_cluster_ids == augmented_cluster_ids).sum() + 1e-6)
+                    )
+                    print((buffer_cluster_ids == augmented_cluster_ids).sum())
                     # print("loss_reg", loss_reg)
 
         print(f"loss ce: {loss_ce}, loss wd: {loss_wd}, loss_reg: {loss_reg}")

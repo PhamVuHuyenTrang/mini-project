@@ -373,7 +373,6 @@ class ICarlLipschitz(RobustnessOptimizer):
                 print(augmented_cluster_ids[5*buffer_size:5*buffer_size+20])
                 print(augmented_cluster_ids[6*buffer_size:6*buffer_size+20])
                 print(augmented_cluster_ids[7*buffer_size:7*buffer_size+20])
-                print(augmented_cluster_ids[8*buffer_size:8*buffer_size+20])
                 print(buffer_cluster_ids[:20].to(torch.int64))
                 exit()
                 for af, bf in zip(augment_features, buffer_feature):

@@ -488,14 +488,14 @@ class Buffer(Dataset):
         if hasattr(self, 'examples'):
             with torch.no_grad():
                 self.augment_examples = torch.cat([
-                    torch.stack([self.transform1(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform2(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform3(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform4(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform5(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform6(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform7(ee.cpu()) for ee in self.examples]),
-                    torch.stack([self.transform8(ee.cpu()) for ee in self.examples]),
+                    self.transform1(self.examples),
+                    self.transform2(self.examples),
+                    self.transform3(self.examples),
+                    self.transform4(self.examples),
+                    self.transform5(self.examples),
+                    self.transform6(self.examples),
+                    self.transform7(self.examples),
+                    self.transform8(self.examples),
                     
                     # torch.stack([self.transform9(ee.cpu()) for ee in self.examples]),
                     # torch.stack([self.transform10(ee.cpu()) for ee in self.examples]),
@@ -515,7 +515,7 @@ class Buffer(Dataset):
                     # torch.stack([self.transform23(ee.cpu()) for ee in self.examples]),
                     # torch.stack([self.transform24(ee.cpu()) for ee in self.examples]),
 
-                ]).to(self.device)
+                ], axis=0).to(self.device)
         
         if hasattr(self, 'labels'):
             with torch.no_grad():

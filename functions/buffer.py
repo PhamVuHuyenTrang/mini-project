@@ -492,13 +492,13 @@ class Buffer(Dataset):
             with torch.no_grad():
                 self.augment_examples = torch.cat([
                     self.transform1(choice_buffer),
-                    self.transform1(choice_buffer),
-                    self.transform1(choice_buffer),
-                    self.transform1(choice_buffer),
-                    self.transform1(choice_buffer),
-                    self.transform1(choice_buffer),
-                    self.transform1(choice_buffer),
-                    self.transform1(choice_buffer),
+                    self.transform2(choice_buffer),
+                    self.transform3(choice_buffer),
+                    self.transform4(choice_buffer),
+                    # self.transform1(choice_buffer),
+                    # self.transform1(choice_buffer),
+                    # self.transform1(choice_buffer),
+                    # self.transform1(choice_buffer),
                     
                     # torch.stack([self.transform9(ee.cpu()) for ee in self.examples]),
                     # torch.stack([self.transform10(ee.cpu()) for ee in self.examples]),

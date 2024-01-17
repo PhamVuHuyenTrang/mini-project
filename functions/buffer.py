@@ -546,10 +546,7 @@ class Buffer(Dataset):
             for attr_str in ['augment_labels', 'augment_logits', 'augment_clusterID']:
                 if hasattr(self, attr_str):
                     attr = getattr(self, attr_str)
-                    if attr is not None:
-                        ret_tuple += (attr[augment_choice],)
-                    else:
-                        ret_tuple += (attr,)
+                    ret_tuple += (attr,)
             return ret_tuple
         else:
             return None

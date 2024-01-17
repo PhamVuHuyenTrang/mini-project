@@ -399,7 +399,6 @@ class ICarlLipschitz(RobustnessOptimizer):
                         ).sum()
                         / ((bf_cluster == augmented_cluster_ids).sum() + 1e-6)
                     )
-                    print((bf_cluster == augmented_cluster_ids).sum())
                     # print("loss_reg", loss_reg)
 
         print(f"loss ce: {loss_ce}, loss wd: {loss_wd}, loss_reg: {loss_reg}")

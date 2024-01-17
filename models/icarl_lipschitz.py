@@ -373,7 +373,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                 # )
                 # print("augment_examples", augment_examples)
                 # print("augment_output", augment_output)
-                print('buffer x: ', buffer_x.shape)
+                # print('buffer x: ', buffer_x.shape)
                 buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
                 # print("buffer_output", buffer_output)
 

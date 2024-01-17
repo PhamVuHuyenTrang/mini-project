@@ -352,9 +352,22 @@ class ICarlLipschitz(RobustnessOptimizer):
                     augmented_cluster_ids,
                 ) = self.buffer.get_augment_data(choice)
 
-                augment_output, augment_features = self.net(
-                    augment_examples, returnt="full"
-                )
+                augment_outputs, augment_features = [], []
+
+                for i in range(0, len(augment_examples), self.setting.minibatch_size):
+                    augment_output, augment_feature = self.net(
+                        augment_examples[i : i + self.setting.minibatch_size],
+                        returnt="full",
+                    )
+                    augment_outputs.append(augment_output)
+                    augment_features.append(augment_feature)
+                
+                augment_output = torch.cat(augment_outputs, dim=0)
+                augment_features = torch.cat(augment_features, dim=0)
+
+                # augment_output, augment_features = self.net(
+                #     augment_examples, returnt="full"
+                # )
                 # print("augment_examples", augment_examples)
                 # print("augment_output", augment_output)
                 buffer_output, buffer_feature = self.net(buffer_x, returnt="full")

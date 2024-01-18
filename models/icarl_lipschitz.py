@@ -2,14 +2,6 @@ from copy import deepcopy
 
 from functions.augmentations import normalize
 import torch
-import torch.nn as nn
-from torchvision.transforms import (
-    RandomHorizontalFlip,
-    RandomResizedCrop,
-    ColorJitter,
-    RandomGrayscale,
-)
-
 import torch.nn.functional as F
 from torchvision import transforms
 from datasets import get_dataset
@@ -18,12 +10,7 @@ from functions.args import *
 from models.utils.continual_model import ContinualModel
 from functions.distributed import make_dp
 from functions.lipschitz import RobustnessOptimizer, add_regularization_args
-from functions.create_partition import (
-    create_partition_func_1nn,
-    create_nearest_buffer_instance_func,
-    create_id_func,
-    nearest_buffer_instance,
-)
+from functions.create_partition import create_partition_func_1nn
 from functions.no_bn import bn_track_stats
 import numpy as np
 from functions.augmentations import (
@@ -33,8 +20,7 @@ from functions.augmentations import (
     change_colors,
 )
 
-# partition_func = create_partition_func_1nn((84, 84, 3), n_centroids=5000)
-id_func = create_id_func()
+partition_func = create_partition_func_1nn((84, 84, 3), n_centroids=5000)
 
 
 def get_parser() -> ArgumentParser:
@@ -164,7 +150,7 @@ def icarl_fill_buffer(
                 examples=_x[idx_min : idx_min + 1].to(self.device),
                 labels=_y[idx_min : idx_min + 1].to(self.device),
                 logits=_l[idx_min : idx_min + 1].to(self.device),
-                clusterID=torch.Tensor([i]).to(torch.int).to(self.device),
+                clusterID=partition_func(_x[idx_min : idx_min + 1]).to(self.device),
             )
 
             running_sum += feats[idx_min : idx_min + 1]
@@ -242,19 +228,6 @@ class ICarlLipschitz(RobustnessOptimizer):
             with torch.no_grad():
                 logits = torch.sigmoid(self.icarl_old_net(inputs))
         self.opt.zero_grad()
-        # if self.args.augment:
-        #     transform = nn.Sequential(
-        #         RandomResizedCrop(size=(84, 84), scale=(0.2, 1.0)),
-        #         RandomHorizontalFlip(),
-        #         ColorJitter(0.4, 0.4, 0.4, 0.1),
-        #         RandomGrayscale(p=0.2),
-        #     )
-        #     augment = transform(inputs)
-        #     inputs = torch.cat([inputs, augment], dim=0)
-        #     labels = torch.cat([labels, labels], dim=0)
-        #     if logits is not None:
-        #         logits = torch.cat([logits, logits], dim=0)
-
         loss, _ = self.get_loss(inputs, labels, self.current_task, logits)
 
         loss.backward()
@@ -286,8 +259,8 @@ class ICarlLipschitz(RobustnessOptimizer):
         ac = (task_idx + 1) * self.dataset.N_CLASSES_PER_TASK
 
         outputs, output_features = self.net(inputs, returnt="full")
-        # print("input___", inputs)
-        # print("outputs", outputs)
+        #print("input___", inputs)
+        #print("outputs", outputs)
         outputs = outputs[:, :ac]
 
         if task_idx == 0:
@@ -298,12 +271,12 @@ class ICarlLipschitz(RobustnessOptimizer):
         else:
             targets = self.eye[labels][:, pc:ac]
             comb_targets = torch.cat((logits[:, :pc], targets), dim=1)
-            # print("logits", logits[:, :pc])
-            # print("targets", targets)
+            #print("logits", logits[:, :pc])
+            #print("targets", targets)
             loss_ce = F.binary_cross_entropy_with_logits(outputs, comb_targets)
-            # print("comb_targets" ,comb_targets)
-            # print("outputs", outputs)
-            # print("loss_ce", loss_ce)
+            #print("comb_targets" ,comb_targets)
+            #print("outputs", outputs)
+            #print("loss_ce", loss_ce)
             assert loss_ce >= 0
 
         if self.args.wd_reg:
@@ -323,14 +296,12 @@ class ICarlLipschitz(RobustnessOptimizer):
         loss_reg = torch.zeros_like(loss_ce).to(self.device)
 
         if not self.buffer.is_empty():
-            if self.args.method == "lider":
+            if self.args.method == 'lider':
                 lip_inputs = [inputs] + output_features[:-1]
+                
+                loss_reg = self.args.buffer_lip_lambda * self.buffer_lip_loss(lip_inputs) + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
 
-                loss_reg = self.args.buffer_lip_lambda * self.buffer_lip_loss(
-                    lip_inputs
-                ) + self.args.budget_lip_lambda * self.budget_lip_loss(lip_inputs)
-
-            elif self.args.method == "localrobustness":
+            elif self.args.method == 'localrobustness':
                 (
                     choice,
                     buffer_x,
@@ -338,16 +309,8 @@ class ICarlLipschitz(RobustnessOptimizer):
                     buffer_logits,
                     buffer_cluster_ids,
                 ) = self.buffer.get_data(
-                    self.setting.minibatch_size,
-                    transform=self.transform,
-                    return_index=True,
+                    self.setting.minibatch_size, transform=self.transform, return_index=True
                 )
-
-                # torch.cuda.empty_cache()
-                buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
-                # print("buffer_output", buffer_output)
-
-                # buffer_cluster_ids = nearest_buffer_instance(buffer_x, buffer_x)
 
                 (
                     augment_examples,
@@ -355,74 +318,29 @@ class ICarlLipschitz(RobustnessOptimizer):
                     _,
                     augmented_cluster_ids,
                 ) = self.buffer.get_augment_data(choice)
-
-                augment_outputs, augment_features = [], []
-
-                for i in range(0, len(augment_examples), self.setting.minibatch_size):
-                    augment_output, augment_feature = self.net(
-                        augment_examples[i : i + self.setting.minibatch_size],
-                        returnt="full",
-                    )
-                    augment_outputs.append(augment_output)
-                    augment_features.append(augment_feature)
-
-                augment_output = torch.cat(augment_outputs, dim=0)
-                augment_features = [
-                    torch.cat([x[i] for x in augment_features], dim=0)
-                    for i in range(len(augment_features[0]))
-                ]
-
-                # augment_output, augment_features = self.net(
-                #     augment_examples, returnt="full"
-                # )
-                # print("augment_examples", augment_examples)
-                # print("augment_output", augment_output)
-                # print('buffer x: ', buffer_x.shape)
                 
+                print(augment_examples.shape)
 
-                # # nearest buffer instance in minibatch
-                # augmented_cluster_ids = nearest_buffer_instance(buffer_x, augment_examples)
-
-                # print('buffer shape: ', buffer_x.shape)
-                # print('augment shape: ', augment_examples.shape)
-
-                reg = 0
-                # mean = 1 / (len(augment_features) * 4 * (self.buffer.buffer_size**2))
-                # buffer_size = buffer_x.shape[0]
-
-                # print(augment_features[0].shape, buffer_feature[0].shape)
-                # print(augmented_cluster_ids[:20])
-                # print(augmented_cluster_ids[buffer_size:buffer_size+20])
-                # print(augmented_cluster_ids[2*buffer_size:2*buffer_size+20])
-                # print(augmented_cluster_ids[3*buffer_size:3*buffer_size+20])
-                # # print(augmented_cluster_ids[4*buffer_size:4*buffer_size+20])
-                # # print(augmented_cluster_ids[5*buffer_size:5*buffer_size+20])
-                # # print(augmented_cluster_ids[6*buffer_size:6*buffer_size+20])
-                # # print(augmented_cluster_ids[7*buffer_size:7*buffer_size+20])
-                # print(buffer_cluster_ids[:20].to(torch.int64))
-                # exit()
+                augment_output, augment_features = self.net(
+                    augment_examples, returnt="full"
+                )
+                #print("augment_examples", augment_examples)
+                #print("augment_output", augment_output)
+                buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
+                #print("buffer_output", buffer_output)
+                reg = 0.01
+                mean = 1/(len(augment_features) * 4 * (self.buffer.buffer_size ** 2))
                 for af, bf in zip(augment_features, buffer_feature):
-                    # duyet qua cac layer
-                    bf_cluster = torch.cat(
-                        [buffer_cluster_ids] * (af.shape[0] // bf.shape[0])
-                    )
+                    #print("bf.shape[0]", bf.shape[0])
                     bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))
                     if len(bf.shape) == 2:
-                        distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1,)))
+                        distance = torch.sqrt(((bf - af) ** 2).sum(dim = (1,)))
                     else:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
-                    # loss_reg += reg * mean * distance.sum()
-                    # print(distance.shape)
-                    # print(bf_cluster.shape)
-                    # print(augmented_cluster_ids.shape)
-                    loss_reg += (
-                        reg
-                        * (distance * (bf_cluster == augmented_cluster_ids)).sum()
-                        / ((bf_cluster == augmented_cluster_ids).sum() + 1e-6)
-                    )
-                    # print("loss_reg", loss_reg)
+                    loss_reg += reg * mean * distance.sum()
+                    #print("loss_reg", loss_reg)
 
-        print(f"loss ce: {loss_ce}, loss wd: {loss_wd}, loss_reg: {loss_reg}")
+        print(f'loss ce: {loss_ce}, loss wd: {loss_wd}, loss_reg: {loss_reg}')
         loss = loss_ce + loss_wd + loss_reg
         return loss, output_features
 
@@ -495,7 +413,6 @@ class ICarlLipschitz(RobustnessOptimizer):
                 self.dataset.get_denormalization_transform().mean,
                 self.dataset.get_denormalization_transform().std,
             )
-            partition_func = create_nearest_buffer_instance_func(self.buffer.examples)
             self.buffer.generate_augment_data(mean, std, partition_func)
         self.current_task += 1
         self.class_means = None

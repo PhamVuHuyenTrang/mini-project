@@ -2,6 +2,9 @@ from copy import deepcopy
 
 from functions.augmentations import normalize
 import torch
+import torch.nn as nn
+from torchvision.transforms import RandomHorizontalFlip, RandomResizedCrop, ColorJitter, RandomGrayscale
+
 import torch.nn.functional as F
 from torchvision import transforms
 from datasets import get_dataset
@@ -228,6 +231,19 @@ class ICarlLipschitz(RobustnessOptimizer):
             with torch.no_grad():
                 logits = torch.sigmoid(self.icarl_old_net(inputs))
         self.opt.zero_grad()
+        if self.args.augment:
+            transform = nn.Sequential(
+                    RandomResizedCrop(size=(84, 84), scale=(0.2, 1.)),
+                    RandomHorizontalFlip(),
+                    ColorJitter(0.4, 0.4, 0.4, 0.1),
+                    RandomGrayscale(p=0.2)
+                )
+            augment = transform(inputs)
+            inputs = torch.cat([inputs, augment], dim=0)
+            labels = torch.cat([labels, labels], dim=0)
+            if logits is not None:
+                logits = torch.cat([logits, logits], dim=0)
+
         loss, _ = self.get_loss(inputs, labels, self.current_task, logits)
 
         loss.backward()
@@ -319,7 +335,6 @@ class ICarlLipschitz(RobustnessOptimizer):
                     augmented_cluster_ids,
                 ) = self.buffer.get_augment_data(choice)
                 
-                print(augment_examples.shape)
 
                 augment_output, augment_features = self.net(
                     augment_examples, returnt="full"

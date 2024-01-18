@@ -386,7 +386,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                 # print('buffer shape: ', buffer_x.shape)
                 # print('augment shape: ', augment_examples.shape)
 
-                reg = 0.01
+                reg = 0.001
                 # mean = 1 / (len(augment_features) * 4 * (self.buffer.buffer_size**2))
                 # buffer_size = buffer_x.shape[0]
 
@@ -412,9 +412,9 @@ class ICarlLipschitz(RobustnessOptimizer):
                     else:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
                     # loss_reg += reg * mean * distance.sum()
-                    print(distance.shape)
-                    print(bf_cluster.shape)
-                    print(augmented_cluster_ids.shape)
+                    # print(distance.shape)
+                    # print(bf_cluster.shape)
+                    # print(augmented_cluster_ids.shape)
                     loss_reg += (
                         reg
                         * (distance * (bf_cluster == augmented_cluster_ids)).sum()

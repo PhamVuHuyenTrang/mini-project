@@ -342,10 +342,10 @@ class ICarlLipschitz(RobustnessOptimizer):
                     transform=self.transform,
                     return_index=True,
                 )
-                
-                torch.cuda.empty_cache()
+
+                # torch.cuda.empty_cache()
                 buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
-                print("buffer_output", buffer_output)
+                # print("buffer_output", buffer_output)
 
                 # buffer_cluster_ids = nearest_buffer_instance(buffer_x, buffer_x)
 
@@ -412,6 +412,9 @@ class ICarlLipschitz(RobustnessOptimizer):
                     else:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim=(1, 2, 3)))
                     # loss_reg += reg * mean * distance.sum()
+                    print(distance.shape)
+                    print(bf_cluster.shape)
+                    print(augmented_cluster_ids.shape)
                     loss_reg += (
                         reg
                         * (distance * (bf_cluster == augmented_cluster_ids)).sum()

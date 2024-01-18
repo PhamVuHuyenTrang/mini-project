@@ -1,4 +1,3 @@
-
 import torch
 import numpy as np
 from typing import Tuple
@@ -6,9 +5,18 @@ from torch.functional import Tensor
 from torchvision import transforms
 from torch.utils.data import Dataset
 import torch.nn as nn
-from torchvision.transforms import RandomHorizontalFlip, RandomResizedCrop, ColorJitter, RandomGrayscale
+from torchvision.transforms import (
+    RandomHorizontalFlip,
+    RandomResizedCrop,
+    ColorJitter,
+    RandomGrayscale,
+)
 import gc
-from functions.create_partition import create_partition_func_1nn, create_partition_func_grid, create_id_func
+from functions.create_partition import (
+    create_partition_func_1nn,
+    create_partition_func_grid,
+    create_id_func,
+)
 from functions.no_bn import bn_track_stats
 import kornia
 
@@ -38,45 +46,53 @@ class Buffer(Dataset):
     """
     The memory buffer of rehearsal method.
     """
-    def __init__(self, buffer_size, device, n_tasks=None, mode='reservoir'):
-        assert mode in ['ring', 'reservoir']
+
+    def __init__(self, buffer_size, device, n_tasks=None, mode="reservoir"):
+        assert mode in ["ring", "reservoir"]
         self.buffer_size = buffer_size
         self.device = device
         self.num_seen_examples = 0
         self.functional_index = eval(mode)
-        if mode == 'ring':
+        if mode == "ring":
             assert n_tasks is not None
             self.task_number = n_tasks
             self.buffer_portion_size = buffer_size // n_tasks
-        self.attributes = ['examples', 'labels', 'logits', 'clusterID', 'task_labels']
+        self.attributes = ["examples", "labels", "logits", "clusterID", "task_labels"]
         self.attention_maps = [None] * buffer_size
         self.lip_values = [None] * buffer_size
 
-        self.balanced_class_perm  = None
+        self.balanced_class_perm = None
         self.transform = None
 
-
     def class_stratified_add_data(self, dataset, cpt, model=None, desired_attrs=None):
-        if not hasattr(self, 'task'):
+        if not hasattr(self, "task"):
             self.task = 0
         # Reduce Memory Buffer
         if self.task:
             examples_per_class = self.buffer_size // ((self.task + 1) * cpt)
-            assert set(desired_attrs) == {x for x in self.attributes if hasattr(self, x)}
+            assert set(desired_attrs) == {
+                x for x in self.attributes if hasattr(self, x)
+            }
             ret_tuples = self.get_all_data()
             self.empty()
             for tl in ret_tuples[1].unique():
                 idx = tl == ret_tuples[1]
                 ret_tuple = [a[idx] for a in ret_tuples]
                 first = min(ret_tuple[0].shape[0], examples_per_class)
-                self.add_data(**{a: ret_tuple[i][:first] for i, a in enumerate(
-                    [x for x in self.attributes if x in desired_attrs])})
-        
+                self.add_data(
+                    **{
+                        a: ret_tuple[i][:first]
+                        for i, a in enumerate(
+                            [x for x in self.attributes if x in desired_attrs]
+                        )
+                    }
+                )
+
         # Add new task data
         examples_last_task = self.buffer_size - self.num_seen_examples
         examples_per_class = examples_last_task // cpt
         ce = torch.tensor([examples_per_class] * cpt).int()
-        ce[torch.randperm(cpt)[:examples_last_task - (examples_per_class * cpt)]] += 1
+        ce[torch.randperm(cpt)[: examples_last_task - (examples_per_class * cpt)]] += 1
 
         with torch.no_grad():
             with bn_track_stats(model, False):
@@ -93,25 +109,42 @@ class Buffer(Dataset):
                             flags[j] = True
                             ce[labels[j] % cpt] -= 1
 
-                    add_dict = {
-                        'examples': not_aug_inputs[flags]
-                    }
-                    if hasattr(self, 'labels') or desired_attrs is not None and 'labels' in desired_attrs:
-                        add_dict['labels'] = labels[flags]
-                    if hasattr(self, 'logits') or desired_attrs is not None and 'logits' in desired_attrs:
+                    add_dict = {"examples": not_aug_inputs[flags]}
+                    if (
+                        hasattr(self, "labels")
+                        or desired_attrs is not None
+                        and "labels" in desired_attrs
+                    ):
+                        add_dict["labels"] = labels[flags]
+                    if (
+                        hasattr(self, "logits")
+                        or desired_attrs is not None
+                        and "logits" in desired_attrs
+                    ):
                         outputs = model(inputs)
-                        add_dict['logits'] = outputs.data[flags]
-                    if hasattr(self, 'task_labels') or desired_attrs is not None and 'task_labels' in desired_attrs:
-                        add_dict['task_labels'] = (torch.ones(len(not_aug_inputs)) *
-                                                    (self.task))[flags]
-                    if hasattr[self, 'clusterID'] or desired_attrs is not None and 'clusterID' in desired_attrs:
+                        add_dict["logits"] = outputs.data[flags]
+                    if (
+                        hasattr(self, "task_labels")
+                        or desired_attrs is not None
+                        and "task_labels" in desired_attrs
+                    ):
+                        add_dict["task_labels"] = (
+                            torch.ones(len(not_aug_inputs)) * (self.task)
+                        )[flags]
+                    if (
+                        hasattr[self, "clusterID"]
+                        or desired_attrs is not None
+                        and "clusterID" in desired_attrs
+                    ):
                         partition_func = create_id_func()
-                        add_dict['clusterID'] = partition_func(not_aug_inputs[flags])
+                        add_dict["clusterID"] = partition_func(not_aug_inputs[flags])
                     self.add_data(**add_dict)
         self.task += 1
 
     def generate_class_perm(self):
-        self.balanced_class_perm = (self.labels.unique()[torch.randperm(len(self.labels.unique()))]).cpu()
+        self.balanced_class_perm = (
+            self.labels.unique()[torch.randperm(len(self.labels.unique()))]
+        ).cpu()
         self.balanced_class_index = 0
 
     def to(self, device):
@@ -133,7 +166,7 @@ class Buffer(Dataset):
             transform = lambda x: x
         else:
             transform = self.transform
-        gc.collect(generation = 2)
+        gc.collect(generation=2)
         inp = self.examples[index]
         ret_tuple = (transform(inp).to(self.device), inp)
         for attr_str in self.attributes[1:]:
@@ -143,9 +176,14 @@ class Buffer(Dataset):
 
         return ret_tuple
 
-
-    def init_tensors(self, examples: torch.Tensor, labels: torch.Tensor,
-                     logits: torch.Tensor, clusterID: torch.Tensor ,task_labels: torch.Tensor) -> None:
+    def init_tensors(
+        self,
+        examples: torch.Tensor,
+        labels: torch.Tensor,
+        logits: torch.Tensor,
+        clusterID: torch.Tensor,
+        task_labels: torch.Tensor,
+    ) -> None:
         """
         Initializes just the required tensors.
         :param examples: tensor containing the images
@@ -156,11 +194,27 @@ class Buffer(Dataset):
         for attr_str in self.attributes:
             attr = eval(attr_str)
             if attr is not None and not hasattr(self, attr_str):
-                typ = torch.int64 if attr_str.endswith('els') else torch.float32
-                setattr(self, attr_str, torch.zeros((self.buffer_size,
-                        *attr.shape[1:]), dtype=typ, device=self.device))
+                typ = torch.int64 if attr_str.endswith("els") else torch.float32
+                setattr(
+                    self,
+                    attr_str,
+                    torch.zeros(
+                        (self.buffer_size, *attr.shape[1:]),
+                        dtype=typ,
+                        device=self.device,
+                    ),
+                )
 
-    def add_data(self, examples, labels=None, logits=None, task_labels=None, clusterID = None, attention_maps=None, lip_values=None):
+    def add_data(
+        self,
+        examples,
+        labels=None,
+        logits=None,
+        task_labels=None,
+        clusterID=None,
+        attention_maps=None,
+        lip_values=None,
+    ):
         """
         Adds the data to the memory buffer according to the reservoir strategy.
         :param examples: tensor containing the images
@@ -169,7 +223,7 @@ class Buffer(Dataset):
         :param task_labels: tensor containing the task labels
         :return: List of indices where the data was added
         """
-        if not hasattr(self, 'examples'):
+        if not hasattr(self, "examples"):
             self.init_tensors(examples, labels, logits, clusterID, task_labels)
 
         rix = []
@@ -182,7 +236,7 @@ class Buffer(Dataset):
                 if self.examples.device != self.device:
                     self.examples.to(self.device)
                 self.examples[index] = examples[i].to(self.device)
-                
+
                 if labels is not None:
                     if self.labels.device != self.device:
                         self.labels.to(self.device)
@@ -212,7 +266,13 @@ class Buffer(Dataset):
             rix.append(index)
         return torch.tensor(rix).to(self.device)
 
-    def get_data(self, size: int, transform: transforms=None, return_index=False, to_device=None) -> Tuple:
+    def get_data(
+        self,
+        size: int,
+        transform: transforms = None,
+        return_index=False,
+        to_device=None,
+    ) -> Tuple:
         """
         Random samples a batch of size items.
         :param size: the number of requested items
@@ -224,22 +284,31 @@ class Buffer(Dataset):
 
         target_device = self.device if to_device is None else to_device
 
-        choice = np.random.choice(min(self.num_seen_examples, self.examples.shape[0]),
-                                  size=size, replace=False)
-        if transform is None: transform = lambda x: x
-        ret_tuple = (torch.stack([transform(ee.cpu())
-                            for ee in self.examples[choice]]).to(target_device),)
+        choice = np.random.choice(
+            min(self.num_seen_examples, self.examples.shape[0]),
+            size=size,
+            replace=False,
+        )
+        if transform is None:
+            transform = lambda x: x
+        ret_tuple = (
+            torch.stack([transform(ee.cpu()) for ee in self.examples[choice]]).to(
+                target_device
+            ),
+        )
         for attr_str in self.attributes[1:]:
             if hasattr(self, attr_str):
                 attr = getattr(self, attr_str).to(target_device)
                 ret_tuple += (attr[choice],)
 
         if not return_index:
-          return ret_tuple
+            return ret_tuple
         else:
-          return (torch.tensor(choice).to(target_device), ) + ret_tuple
+            return (torch.tensor(choice).to(target_device),) + ret_tuple
 
-    def get_data_by_index(self, indexes: Tensor, transform: transforms=None, to_device=None) -> Tuple:
+    def get_data_by_index(
+        self, indexes: Tensor, transform: transforms = None, to_device=None
+    ) -> Tuple:
         """
         Returns the data by the given index.
         :param index: the index of the item
@@ -247,17 +316,26 @@ class Buffer(Dataset):
         :return:
         """
         target_device = self.device if to_device is None else to_device
-        if transform is None: transform = lambda x: x
-        ret_tuple = (torch.stack([transform(ee.cpu())
-                            for ee in self.examples[indexes]]).to(target_device),)
+        if transform is None:
+            transform = lambda x: x
+        ret_tuple = (
+            torch.stack([transform(ee.cpu()) for ee in self.examples[indexes]]).to(
+                target_device
+            ),
+        )
         for attr_str in self.attributes[:-1]:
             if hasattr(self, attr_str):
                 attr = getattr(self, attr_str).to(target_device)
                 ret_tuple += (attr[indexes],)
         return ret_tuple
 
-
-    def get_data_balanced(self, n_classes: int, n_instances: int, transform: transforms=None, return_index=False) -> Tuple:
+    def get_data_balanced(
+        self,
+        n_classes: int,
+        n_instances: int,
+        transform: transforms = None,
+        return_index=False,
+    ) -> Tuple:
         """
         Random samples a batch of size items.
         :param n_classes: the number of classes to sample
@@ -269,42 +347,56 @@ class Buffer(Dataset):
         choice = torch.tensor([]).long()
 
         while len(classes_to_sample) < n_classes:
-            if self.balanced_class_perm is None or \
-               self.balanced_class_index >= len(self.balanced_class_perm) or \
-               len(self.balanced_class_perm.unique()) != len(self.labels.unique()):
+            if (
+                self.balanced_class_perm is None
+                or self.balanced_class_index >= len(self.balanced_class_perm)
+                or len(self.balanced_class_perm.unique()) != len(self.labels.unique())
+            ):
                 self.generate_class_perm()
-            
-            classes_to_sample = torch.cat([
-                classes_to_sample,
-                self.balanced_class_perm[self.balanced_class_index:self.balanced_class_index+n_classes]
-                ])
+
+            classes_to_sample = torch.cat(
+                [
+                    classes_to_sample,
+                    self.balanced_class_perm[
+                        self.balanced_class_index : self.balanced_class_index
+                        + n_classes
+                    ],
+                ]
+            )
             self.balanced_class_index += n_classes
 
         for a_class in classes_to_sample:
             candidates = np.arange(len(self.labels))[self.labels.cpu() == a_class]
             candidates = candidates[candidates < self.num_seen_examples]
-            choice = torch.cat([
-                choice, 
-                torch.tensor(
-                    np.random.choice(candidates,
-                    size=n_instances,
-                    replace=len(candidates) < n_instances
-                    )
-                )
-            ])
-        
-        if transform is None: transform = lambda x: x
-        ret_tuple = (torch.stack([transform(ee.cpu())
-                            for ee in self.examples[choice]]).to(self.device),)
+            choice = torch.cat(
+                [
+                    choice,
+                    torch.tensor(
+                        np.random.choice(
+                            candidates,
+                            size=n_instances,
+                            replace=len(candidates) < n_instances,
+                        )
+                    ),
+                ]
+            )
+
+        if transform is None:
+            transform = lambda x: x
+        ret_tuple = (
+            torch.stack([transform(ee.cpu()) for ee in self.examples[choice]]).to(
+                self.device
+            ),
+        )
         for attr_str in self.attributes[1:]:
             if hasattr(self, attr_str):
                 attr = getattr(self, attr_str)
                 ret_tuple += (attr[choice],)
 
         if not return_index:
-          return ret_tuple
+            return ret_tuple
         else:
-          return (choice.to(self.device), ) + ret_tuple
+            return (choice.to(self.device),) + ret_tuple
 
     def is_empty(self) -> bool:
         """
@@ -315,15 +407,17 @@ class Buffer(Dataset):
         else:
             return False
 
-    def get_all_data(self, transform: transforms=None) -> Tuple:
+    def get_all_data(self, transform: transforms = None) -> Tuple:
         """
         Return all the items in the memory buffer.
         :param transform: the transformation to be applied (data augmentation)
         :return: a tuple with all the items in the memory buffer
         """
-        if transform is None: transform = lambda x: x
-        ret_tuple = (torch.stack([transform(ee.cpu())
-                            for ee in self.examples]).to(self.device),)
+        if transform is None:
+            transform = lambda x: x
+        ret_tuple = (
+            torch.stack([transform(ee.cpu()) for ee in self.examples]).to(self.device),
+        )
         for attr_str in self.attributes[1:4]:
             if hasattr(self, attr_str):
                 attr = getattr(self, attr_str)
@@ -338,8 +432,10 @@ class Buffer(Dataset):
             if hasattr(self, attr_str):
                 delattr(self, attr_str)
         self.num_seen_examples = 0
-    
-    def get_data_by_clusterID(self, clusterID, transform: transforms = None, return_index=False):
+
+    def get_data_by_clusterID(
+        self, clusterID, transform: transforms = None, return_index=False
+    ):
         """
         Returns data based on the provided clusterID.
         :param clusterID: the clusterID to filter the data
@@ -349,7 +445,9 @@ class Buffer(Dataset):
         """
         target_device = self.device
 
-        cluster_indices = [i for i, cid in enumerate(self.clusterID) if cid == clusterID]
+        cluster_indices = [
+            i for i, cid in enumerate(self.clusterID) if cid == clusterID
+        ]
 
         if not cluster_indices:
             # No data with the specified clusterID found
@@ -365,7 +463,11 @@ class Buffer(Dataset):
         if transform is None:
             transform = lambda x: x
 
-        ret_tuple += (torch.stack([transform(ee.cpu()) for ee in self.examples[cluster_indices]]).to(target_device),)
+        ret_tuple += (
+            torch.stack(
+                [transform(ee.cpu()) for ee in self.examples[cluster_indices]]
+            ).to(target_device),
+        )
 
         for attr_str in self.attributes[1:-1]:
             if hasattr(self, attr_str):
@@ -377,17 +479,29 @@ class Buffer(Dataset):
         """
         Generate augmented data for the memory buffer.
         """
-        if not hasattr(self, 'examples'):
+        if not hasattr(self, "examples"):
             return
 
-        self.transform1 = RandomGrayscale(p=1.)
-        self.transform2 = lambda inp: kornia.morphology.dilation(inp, kernel=torch.ones(3, 3).to(self.device))
-        self.transform3 = lambda inp: kornia.morphology.erosion(inp, kernel=torch.ones(3, 3).to(self.device))
-        self.transform4 = lambda inp: kornia.morphology.opening(inp, kernel=torch.ones(3, 3).to(self.device))
-        self.transform5 = lambda inp: kornia.morphology.closing(inp, kernel=torch.ones(3, 3).to(self.device))
-        self.transform6 = kornia.augmentation.RandomPlanckianJitter(mode='blackbody', p=1., select_from=list(range(24)))
-        self.transform7 = kornia.augmentation.RandomPlanckianJitter(mode='CIED', p=1., select_from=list(range(22)))
-        self.transform8 = kornia.augmentation.RandomBoxBlur(p=1.)
+        self.transform1 = RandomGrayscale(p=1.0)
+        self.transform2 = lambda inp: kornia.morphology.dilation(
+            inp, kernel=torch.ones(3, 3).to(self.device)
+        )
+        self.transform3 = lambda inp: kornia.morphology.erosion(
+            inp, kernel=torch.ones(3, 3).to(self.device)
+        )
+        self.transform4 = lambda inp: kornia.morphology.opening(
+            inp, kernel=torch.ones(3, 3).to(self.device)
+        )
+        self.transform5 = lambda inp: kornia.morphology.closing(
+            inp, kernel=torch.ones(3, 3).to(self.device)
+        )
+        self.transform6 = kornia.augmentation.RandomPlanckianJitter(
+            mode="blackbody", p=1.0, select_from=list(range(24))
+        )
+        self.transform7 = kornia.augmentation.RandomPlanckianJitter(
+            mode="CIED", p=1.0, select_from=list(range(22))
+        )
+        self.transform8 = kornia.augmentation.RandomBoxBlur(p=1.0)
         # self.transform9 = nn.Sequential(
         #             RandomResizedCrop(size=(84, 84), scale=(0.76, 1.)),
         #             RandomHorizontalFlip(),
@@ -400,7 +514,7 @@ class Buffer(Dataset):
         #             ColorJitter(0.36, 0.36, 0.36, 0.1),
         #             RandomGrayscale(p=0.46)
         #         )
-        
+
         # self.transform11 = nn.Sequential(
         #             RandomResizedCrop(size=(84, 84), scale=(0.19, 1.)),
         #             RandomHorizontalFlip(),
@@ -478,73 +592,72 @@ class Buffer(Dataset):
         #     transforms.RandomRotation(70),
         #     transforms.Normalize(mean, std),
         # ])
-        setattr(self, 'partition_func', partition_func)
+        setattr(self, "partition_func", partition_func)
         self.clusterID = partition_func(self.examples)
-        print(self.clusterID)
-        
 
     def get_augment_data(self, choice):
         """
         Return augmented data.
         """
-        if hasattr(self, 'examples'):
+        if hasattr(self, "examples"):
             choice_buffer = self.examples[choice]
             with torch.no_grad():
-                self.augment_examples = torch.cat([
-                    self.transform1(choice_buffer),
-                    self.transform2(choice_buffer),
-                    self.transform3(choice_buffer),
-                    self.transform4(choice_buffer),
-                    self.transform5(choice_buffer),
-                    self.transform6(choice_buffer),
-                    self.transform7(choice_buffer),
-                    self.transform8(choice_buffer),
-                    
-                    # torch.stack([self.transform9(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform10(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform11(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform12(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform13(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform14(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform15(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform16(ee.cpu()) for ee in self.examples]),
-                    
-                    # torch.stack([self.transform17(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform18(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform19(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform20(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform21(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform22(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform23(ee.cpu()) for ee in self.examples]),
-                    # torch.stack([self.transform24(ee.cpu()) for ee in self.examples]),
+                self.augment_examples = torch.cat(
+                    [
+                        self.transform1(choice_buffer),
+                        self.transform2(choice_buffer),
+                        self.transform3(choice_buffer),
+                        self.transform4(choice_buffer),
+                        self.transform5(choice_buffer),
+                        self.transform6(choice_buffer),
+                        self.transform7(choice_buffer),
+                        self.transform8(choice_buffer),
+                        # torch.stack([self.transform9(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform10(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform11(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform12(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform13(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform14(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform15(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform16(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform17(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform18(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform19(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform20(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform21(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform22(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform23(ee.cpu()) for ee in self.examples]),
+                        # torch.stack([self.transform24(ee.cpu()) for ee in self.examples]),
+                    ],
+                    axis=0,
+                ).to(self.device)
 
-                ], axis=0).to(self.device)
-        
-        if hasattr(self, 'labels'):
+        if hasattr(self, "labels"):
             with torch.no_grad():
                 self.augment_labels = torch.cat([self.labels] * 4).to(self.device)
 
-        if hasattr(self, 'logits'):
+        if hasattr(self, "logits"):
             self.augment_logits = None
 
-        
-        if hasattr(self, 'clusterID'):
+        if hasattr(self, "clusterID"):
             with torch.no_grad():
                 self.augment_clusterID = self.partition_func(self.augment_examples)
 
-        if hasattr(self, 'task_labels'):
+        if hasattr(self, "task_labels"):
             with torch.no_grad():
-                self.augment_task_labels = torch.cat([self.task_labels] * 4).to(self.device)
-
+                self.augment_task_labels = torch.cat(
+                    [self.task_labels]
+                    * (len(self.augment_examples) // len(self.task_labels))
+                ).to(self.device)
 
         ret_tuple = ()
-        if hasattr(self, 'augment_examples'):
+        if hasattr(self, "augment_examples"):
             # augment_choice = torch.cat([choice,
             #                             choice + self.buffer_size,
             #                             choice + 2 * self.buffer_size,
             #                             choice + 3 * self.buffer_size])
             ret_tuple = (self.augment_examples,)
-            for attr_str in ['augment_labels', 'augment_logits', 'augment_clusterID']:
+            for attr_str in ["augment_labels", "augment_logits", "augment_clusterID"]:
                 if hasattr(self, attr_str):
                     attr = getattr(self, attr_str)
                     ret_tuple += (attr,)
@@ -552,26 +665,31 @@ class Buffer(Dataset):
         else:
             return None
 
-        if hasattr(self, 'logits'):
+        if hasattr(self, "logits"):
             self.augment_logits = None
-        
-        if hasattr(self, 'clusterID'):
+
+        if hasattr(self, "clusterID"):
             with torch.no_grad():
                 self.augment_clusterID = self.partition_func(self.augment_examples)
-        
-        if hasattr(self, 'task_labels'):
-            with torch.no_grad():
-                self.augment_task_labels = torch.cat([self.task_labels] * 4).to(self.device)
 
+        if hasattr(self, "task_labels"):
+            with torch.no_grad():
+                self.augment_task_labels = torch.cat([self.task_labels] * 4).to(
+                    self.device
+                )
 
         ret_tuple = ()
-        if hasattr(self, 'augment_examples'):
-            augment_choice = torch.cat([choice,
-                                        choice + self.buffer_size,
-                                        choice + 2 * self.buffer_size,
-                                        choice + 3 * self.buffer_size])
+        if hasattr(self, "augment_examples"):
+            augment_choice = torch.cat(
+                [
+                    choice,
+                    choice + self.buffer_size,
+                    choice + 2 * self.buffer_size,
+                    choice + 3 * self.buffer_size,
+                ]
+            )
             ret_tuple = (self.augment_examples[augment_choice],)
-            for attr_str in ['augment_labels', 'augment_logits', 'augment_clusterID']:
+            for attr_str in ["augment_labels", "augment_logits", "augment_clusterID"]:
                 if hasattr(self, attr_str):
                     attr = getattr(self, attr_str)
                     if attr is not None:

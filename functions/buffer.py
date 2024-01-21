@@ -482,33 +482,33 @@ class Buffer(Dataset):
         if not hasattr(self, "examples"):
             return
         
-        self.transform1 = transforms.Compose([
-            transforms.RandomRotation(15),
-            transforms.Normalize(mean, std),
-        ])
-        self.transform2 = transforms.Compose([
-            transforms.RandomRotation(30),
-            transforms.Normalize(mean, std),
-        ])
-        self.transform3 = transforms.Compose([
-            transforms.RandomRotation(45),
-            transforms.Normalize(mean, std),
-        ])
-        self.transform4 = transforms.Compose([
-            transforms.RandomRotation(60),
-            transforms.Normalize(mean, std),
-        ])
+        # self.transform1 = transforms.Compose([
+        #     transforms.RandomRotation(15),
+        #     transforms.Normalize(mean, std),
+        # ])
+        # self.transform2 = transforms.Compose([
+        #     transforms.RandomRotation(30),
+        #     transforms.Normalize(mean, std),
+        # ])
+        # self.transform3 = transforms.Compose([
+        #     transforms.RandomRotation(45),
+        #     transforms.Normalize(mean, std),
+        # ])
+        # self.transform4 = transforms.Compose([
+        #     transforms.RandomRotation(60),
+        #     transforms.Normalize(mean, std),
+        # ])
 
-        # self.transform1 = RandomGrayscale(p=1.0)
-        # self.transform2 = lambda inp: kornia.morphology.dilation(
-        #     inp, kernel=torch.ones(3, 3).to(self.device)
-        # )
-        # self.transform3 = lambda inp: kornia.morphology.erosion(
-        #     inp, kernel=torch.ones(3, 3).to(self.device)
-        # )
-        # self.transform4 = lambda inp: kornia.morphology.opening(
-        #     inp, kernel=torch.ones(3, 3).to(self.device)
-        # )
+        self.transform1 = RandomGrayscale(p=1.0)
+        self.transform2 = lambda inp: kornia.morphology.dilation(
+            inp, kernel=torch.ones(3, 3).to(self.device)
+        )
+        self.transform3 = lambda inp: kornia.morphology.erosion(
+            inp, kernel=torch.ones(3, 3).to(self.device)
+        )
+        self.transform4 = lambda inp: kornia.morphology.opening(
+            inp, kernel=torch.ones(3, 3).to(self.device)
+        )
         # self.transform5 = lambda inp: kornia.morphology.closing(
         #     inp, kernel=torch.ones(3, 3).to(self.device)
         # )

@@ -28,6 +28,8 @@ def add_experiment_args(parser: ArgumentParser) -> None:
                         help='Method name.')
     parser.add_argument('--augment', type=bool, default = True,
                         help='Augment or not')
+    
+    parser.add_argument('--localrobustnessreg', type=float, default=0.1,)
 
 def add_management_args(parser: ArgumentParser) -> None:
     parser.add_argument('--job_number', type=int, default=None,

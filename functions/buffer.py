@@ -499,35 +499,35 @@ class Buffer(Dataset):
         #     transforms.Normalize(mean, std),
         # ])
 
-        # self.transform1 = transforms.Compose(
-        #     [RandomGrayscale(p=1.0), transforms.Normalize(mean, std)]
-        # )
-        # self.transform2 = lambda inp: transforms.Normalize(mean, std)(
-        #     kornia.morphology.dilation(inp, kernel=torch.ones(3, 3).to(self.device))
-        # )
-        # self.transform3 = lambda inp: transforms.Normalize(mean, std)(
-        #     kornia.morphology.erosion(inp, kernel=torch.ones(3, 3).to(self.device))
-        # )
-        # self.transform4 = lambda inp: transforms.Normalize(mean, std)(
-        #     kornia.morphology.opening(inp, kernel=torch.ones(3, 3).to(self.device))
-        # )
-        self.transform1 = lambda inp: transforms.Normalize(mean, std)(kornia.morphology.closing(
-            inp, kernel=torch.ones(3, 3).to(self.device))
+        self.transform1 = transforms.Compose(
+            [RandomGrayscale(p=1.0), transforms.Normalize(mean, std)]
         )
-        self.transform2 = transforms.Compose(
-            [kornia.augmentation.RandomPlanckianJitter(
-            mode="blackbody", p=1.0, select_from=list(range(24))),
-            transforms.Normalize(mean, std)]
+        self.transform2 = lambda inp: transforms.Normalize(mean, std)(
+            kornia.morphology.dilation(inp, kernel=torch.ones(3, 3).to(self.device))
         )
-        self.transform3 = transforms.Compose(
-            [kornia.augmentation.RandomPlanckianJitter(
-            mode="CIED", p=1.0, select_from=list(range(22)),
-            ), transforms.Normalize(mean, std)]
+        self.transform3 = lambda inp: transforms.Normalize(mean, std)(
+            kornia.morphology.erosion(inp, kernel=torch.ones(3, 3).to(self.device))
         )
-        self.transform4 = transforms.Compose(
-            [kornia.augmentation.RandomBoxBlur(p=1.0),
-            transforms.Normalize(mean, std)]
+        self.transform4 = lambda inp: transforms.Normalize(mean, std)(
+            kornia.morphology.opening(inp, kernel=torch.ones(3, 3).to(self.device))
         )
+        # self.transform1 = lambda inp: transforms.Normalize(mean, std)(kornia.morphology.closing(
+        #     inp, kernel=torch.ones(3, 3).to(self.device))
+        # )
+        # self.transform2 = transforms.Compose(
+        #     [kornia.augmentation.RandomPlanckianJitter(
+        #     mode="blackbody", p=1.0, select_from=list(range(24))),
+        #     transforms.Normalize(mean, std)]
+        # )
+        # self.transform3 = transforms.Compose(
+        #     [kornia.augmentation.RandomPlanckianJitter(
+        #     mode="CIED", p=1.0, select_from=list(range(22)),
+        #     ), transforms.Normalize(mean, std)]
+        # )
+        # self.transform4 = transforms.Compose(
+        #     [kornia.augmentation.RandomBoxBlur(p=1.0),
+        #     transforms.Normalize(mean, std)]
+        # )
         # self.transform9 = nn.Sequential(
         #             RandomResizedCrop(size=(84, 84), scale=(0.76, 1.)),
         #             RandomHorizontalFlip(),

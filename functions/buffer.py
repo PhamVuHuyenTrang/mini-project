@@ -511,23 +511,16 @@ class Buffer(Dataset):
         self.transform4 = lambda inp: transforms.Normalize(mean, std)(
             kornia.morphology.opening(inp, kernel=torch.ones(3, 3).to(self.device))
         )
-        # self.transform1 = lambda inp: transforms.Normalize(mean, std)(kornia.morphology.closing(
-        #     inp, kernel=torch.ones(3, 3).to(self.device))
-        # )
-        # self.transform2 = transforms.Compose(
-        #     [kornia.augmentation.RandomPlanckianJitter(
-        #     mode="blackbody", p=1.0, select_from=list(range(24))),
-        #     transforms.Normalize(mean, std)]
-        # )
-        # self.transform3 = transforms.Compose(
-        #     [kornia.augmentation.RandomPlanckianJitter(
-        #     mode="CIED", p=1.0, select_from=list(range(22)),
-        #     ), transforms.Normalize(mean, std)]
-        # )
-        # self.transform4 = transforms.Compose(
-        #     [kornia.augmentation.RandomBoxBlur(p=1.0),
-        #     transforms.Normalize(mean, std)]
-        # )
+        self.transform5 = lambda inp: transforms.Normalize(mean, std)(kornia.morphology.closing(inp, kernel=torch.ones(3, 3).to(self.device)))
+        self.transform6 = transforms.Compose([kornia.augmentation.RandomPlanckianJitter(mode="blackbody", p=1.0, select_from=list(range(24))),transforms.Normalize(mean, std)])
+        self.transform7 = transforms.Compose([kornia.augmentation.RandomPlanckianJitter(mode="CIED", p=1.0, select_from=list(range(22)),), transforms.Normalize(mean, std)])
+        self.transform8 = transforms.Compose([kornia.augmentation.RandomBoxBlur(p=1.0),transforms.Normalize(mean, std)])
+        self.transform9 = transforms.Compose(
+            [RandomGrayscale(p=0.5), transforms.Normalize(mean, std)]
+        )
+        self.transform10 = transforms.Compose(
+            [RandomGrayscale(p=0.75), transforms.Normalize(mean, std)]
+        )
         # self.transform9 = nn.Sequential(
         #             RandomResizedCrop(size=(84, 84), scale=(0.76, 1.)),
         #             RandomHorizontalFlip(),
@@ -634,10 +627,12 @@ class Buffer(Dataset):
                         self.transform2(choice_buffer),
                         self.transform3(choice_buffer),
                         self.transform4(choice_buffer),
-                        # self.transform5(choice_buffer),
-                        # self.transform6(choice_buffer),
-                        # self.transform7(choice_buffer),
-                        # self.transform8(choice_buffer),
+                        self.transform5(choice_buffer),
+                        self.transform6(choice_buffer),
+                        self.transform7(choice_buffer),
+                        self.transform8(choice_buffer),
+                        self.transform9(choice_buffer),
+                        self.transform10(choice_buffer)
                         # torch.stack([self.transform9(ee.cpu()) for ee in self.examples]),
                         # torch.stack([self.transform10(ee.cpu()) for ee in self.examples]),
                         # torch.stack([self.transform11(ee.cpu()) for ee in self.examples]),

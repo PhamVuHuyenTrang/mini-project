@@ -259,8 +259,6 @@ class ICarlLipschitz(RobustnessOptimizer):
         ac = (task_idx + 1) * self.dataset.N_CLASSES_PER_TASK
 
         outputs, output_features = self.net(inputs, returnt="full")
-        #print("input___", inputs)
-        #print("outputs", outputs)
         outputs = outputs[:, :ac]
 
         if task_idx == 0:
@@ -270,13 +268,8 @@ class ICarlLipschitz(RobustnessOptimizer):
             assert loss_ce >= 0
         else:
             targets = self.eye[labels][:, pc:ac]
-            comb_targets = torch.cat((logits[:, :pc], targets), dim=1)
-            #print("logits", logits[:, :pc])
-            #print("targets", targets)
+            comb_targets = torch.cat((logits[:, :pc], targets), dim = 1)
             loss_ce = F.binary_cross_entropy_with_logits(outputs, comb_targets)
-            #print("comb_targets" ,comb_targets)
-            #print("outputs", outputs)
-            #print("loss_ce", loss_ce)
             assert loss_ce >= 0
 
         if self.args.wd_reg:
@@ -317,20 +310,21 @@ class ICarlLipschitz(RobustnessOptimizer):
                     augmented_labels,
                     _,
                     augmented_cluster_ids,
-                ) = self.buffer.get_augment_data(choice)
+                ), same_indices1, same_indices2 = self.buffer.get_augment_data(choice)
 
                 augment_output, augment_features = self.net(
                     augment_examples, returnt="full"
                 )
-                #print("augment_examples", augment_examples)
-                #print("augment_output", augment_output)
+               
                 buffer_output, buffer_feature = self.net(buffer_x, returnt="full")
                 #print("buffer_output", buffer_output)
                 reg = self.args.localrobustnessreg
-                mean = 1/(len(augment_features) * 4 * (self.buffer.buffer_size ** 2))
+                mean = 1/(len(augment_features) * 10 * (self.buffer.buffer_size ** 2))
                 for af, bf in zip(augment_features, buffer_feature):
-                    #print("bf.shape[0]", bf.shape[0])
-                    bf = torch.cat([bf] * (af.shape[0] // bf.shape[0]))
+                   
+                    bf_1 = bf[same_indices1]
+                    bf_2 = bf[same_indices2]
+                    bf = torch.cat([bf_1, bf_2], axis = 0)
                     if len(bf.shape) == 2:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim = (1,)))
                     else:

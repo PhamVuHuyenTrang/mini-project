@@ -733,7 +733,7 @@ class Buffer(Dataset):
                 if hasattr(self, attr_str):
                     attr = getattr(self, attr_str)
                     ret_tuple += (attr,)
-            return ret_tuple, same_indices1, same_indices2
+            return ret_tuple, same_indices1, same_indices2, same_indices3, same_indices4, same_indices5, same_indices6, same_indices7, same_indices8, same_indices9, same_indices10
         else:
             return None
 

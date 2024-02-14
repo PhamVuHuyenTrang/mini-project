@@ -310,7 +310,7 @@ class ICarlLipschitz(RobustnessOptimizer):
                     augmented_labels,
                     _,
                     augmented_cluster_ids,
-                ), same_indices1, same_indices2 = self.buffer.get_augment_data(choice)
+                ), same_indices1, same_indices2, same_indices3, same_indices4, same_indices5, same_indices6, same_indices7, same_indices8, same_indices9, same_indices10 = self.buffer.get_augment_data(choice)
 
                 augment_output, augment_features = self.net(
                     augment_examples, returnt="full"
@@ -324,7 +324,15 @@ class ICarlLipschitz(RobustnessOptimizer):
                    
                     bf_1 = bf[same_indices1]
                     bf_2 = bf[same_indices2]
-                    bf = torch.cat([bf_1, bf_2], axis = 0)
+                    bf_3 = bf[same_indices3]
+                    bf_4 = bf[same_indices4]
+                    bf_5 = bf[same_indices5]
+                    bf_6 = bf[same_indices6]
+                    bf_7 = bf[same_indices7]
+                    bf_8 = bf[same_indices8]
+                    bf_9 = bf[same_indices9]
+                    bf_10 = bf[same_indices10]
+                    bf = torch.cat([bf_1, bf_2, bf_3, bf_4, bf_5, bf_6, bf_7, bf_8, bf_9, bf_10], axis = 0)
                     if len(bf.shape) == 2:
                         distance = torch.sqrt(((bf - af) ** 2).sum(dim = (1,)))
                     else:

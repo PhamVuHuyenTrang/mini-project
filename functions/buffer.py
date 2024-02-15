@@ -13,8 +13,7 @@ from torchvision.transforms import (
 )
 import gc
 from functions.create_partition import (
-    create_partition_func_1nn,
-    create_partition_func_grid,
+    create_nearest_buffer_instance_func,
     create_id_func,
 )
 from functions.no_bn import bn_track_stats
@@ -620,19 +619,71 @@ class Buffer(Dataset):
         """
         if hasattr(self, "examples"):
             choice_buffer = self.examples[choice]
+            partition_func = create_nearest_buffer_instance_func(choice_buffer)
+            self.augmented_examples1 = self.transform1(choice_buffer)
+            equal_elements1 = torch.eq(partition_func(choice_buffer), partition_func(self.augmented_examples1))
+            same_indices1 = torch.nonzero(equal_elements1).squeeze()
+            augment1 = self.augmented_examples1[same_indices1]
+
+            self.augmented_examples2 = self.transform2(choice_buffer)
+            equal_elements2 = torch.eq(partition_func(choice_buffer), partition_func(self.augmented_examples2))
+            same_indices2 = torch.nonzero(equal_elements2).squeeze()
+            augment2 = self.augmented_examples2[same_indices2]
+
+            
+            self.augmented_examples3 = self.transform3(choice_buffer)
+            equal_elements3 = torch.eq(partition_func(choice_buffer), partition_func(self.augmented_examples3))
+            same_indices3 = torch.nonzero(equal_elements3).squeeze()
+            augment3 = self.augmented_examples3[same_indices3]
+
+            self.augmented_examples4 = self.transform4(choice_buffer)
+            equal_elements4 = torch.eq(partition_func(choice_buffer), partition_func(self.augmented_examples4))
+            same_indices4 = torch.nonzero(equal_elements4).squeeze()
+            augment4 = self.augmented_examples4[same_indices4]
+
+            self.augmented_examples5 = self.transform5(choice_buffer)
+            equal_elements5 = torch.eq(partition_func(choice_buffer), partition_func(self.augmented_examples5))
+            same_indices5 = torch.nonzero(equal_elements5).squeeze()
+            augment5 = self.augmented_examples5[same_indices5]
+
+            self.augmented_examples6 = self.transform6(choice_buffer)
+            equal_elements6 = torch.eq(partition_func(choice_buffer), partition_func(self.augmented_examples6))
+            same_indices6 = torch.nonzero(equal_elements6).squeeze()
+            augment6 = self.augmented_examples6[same_indices6]
+
+            self.augmented_examples7 = self.transform7(choice_buffer)
+            equal_elements7 = torch.eq(partition_func(choice_buffer), partition_func(self.augmented_examples7))
+            same_indices7 = torch.nonzero(equal_elements7).squeeze()
+            augment7 = self.augmented_examples7[same_indices7]
+
+            self.augmented_examples8 = self.transform8(choice_buffer)
+            equal_elements8 = torch.eq(partition_func(choice_buffer), partition_func(self.augmented_examples8))
+            same_indices8 = torch.nonzero(equal_elements8).squeeze()
+            augment8 = self.augmented_examples8[same_indices8]
+
+            self.augmented_examples9 = self.transform9(choice_buffer)
+            equal_elements9 = torch.eq(partition_func(choice_buffer), partition_func(self.augmented_examples9))
+            same_indices9 = torch.nonzero(equal_elements9).squeeze()
+            augment9 = self.augmented_examples9[same_indices9]
+
+            self.augmented_examples10 = self.transform10(choice_buffer)
+            equal_elements10 = torch.eq(partition_func(choice_buffer), partition_func(self.augmented_examples10))
+            same_indices10 = torch.nonzero(equal_elements10).squeeze()
+            augment10 = self.augmented_examples10[same_indices10]
+
             with torch.no_grad():
                 self.augment_examples = torch.cat(
                     [
-                        self.transform1(choice_buffer),
-                        self.transform2(choice_buffer),
-                        self.transform3(choice_buffer),
-                        self.transform4(choice_buffer),
-                        self.transform5(choice_buffer),
-                        self.transform6(choice_buffer),
-                        self.transform7(choice_buffer),
-                        self.transform8(choice_buffer),
-                        self.transform9(choice_buffer),
-                        self.transform10(choice_buffer)
+                        augment1,
+                        augment2,
+                        augment3,
+                        augment4,
+                        augment5,
+                        augment6,
+                        augment7,
+                        augment8,
+                        augment9,
+                        augment10,
                         # torch.stack([self.transform9(ee.cpu()) for ee in self.examples]),
                         # torch.stack([self.transform10(ee.cpu()) for ee in self.examples]),
                         # torch.stack([self.transform11(ee.cpu()) for ee in self.examples]),
@@ -682,7 +733,7 @@ class Buffer(Dataset):
                 if hasattr(self, attr_str):
                     attr = getattr(self, attr_str)
                     ret_tuple += (attr,)
-            return ret_tuple
+            return ret_tuple, same_indices1, same_indices2, same_indices3, same_indices4, same_indices5, same_indices6, same_indices7, same_indices8, same_indices9, same_indices10
         else:
             return None
 
